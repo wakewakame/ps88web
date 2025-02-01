@@ -1,8 +1,8 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700&display=swap');
+@import "tailwindcss";
 
 body {
-  background-color: #222;
+  background-color: var(--color-zinc-900);
 }
 
 * {
