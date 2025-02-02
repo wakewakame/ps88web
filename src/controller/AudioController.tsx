@@ -127,6 +127,23 @@ export const AudioController = class {
       .map((device) => ({ deviceId: device.deviceId, deviceName: device.label }));
   }
 
+  private static midiAccess?: MIDIAccess;
+
+  /**
+   * MIDI 一覧の取得
+   *
+   * @returns MIDI 一覧
+   */
+  public static async getMIDIs(): Promise<{ deviceId: string, deviceName: string }[]> {
+    if (AudioController.midiAccess === undefined) {
+      AudioController.midiAccess = await navigator.requestMIDIAccess();
+    }
+    return [...AudioController.midiAccess.inputs.entries()].map(([id, device]) => ({
+      deviceId: id.toString(),
+      deviceName: device.name ?? "unknown",
+    }));
+  }
+
   private static input?: { stream: MediaStream, node: MediaStreamAudioSourceNode };
 
   /**
@@ -200,6 +217,44 @@ export const AudioController = class {
       await ((AudioController.output as any).setSinkId?.(deviceId) ?? (async () => {})());
     }
     await AudioController.output.play();
+  }
+
+  private static midi?: MIDIInput;
+  private static midiListener = (event: Event) => {
+    console.log(Array.from((event as MIDIMessageEvent).data ?? []));
+  };
+
+  /**
+   * MIDI の指定
+   *
+   * @param enable - true=MIDI有効化, false=MIDI無効化
+   * @param deviceId - MIDIのデバイスID
+   */
+  public static async setMIDI(enable: boolean, deviceId?: string) {
+    if (AudioController.midi !== undefined) {
+      AudioController.midi.removeEventListener("midimessage", AudioController.midiListener);
+      await AudioController.midi.close();
+      AudioController.midi = undefined;
+    }
+    if (!enable) {
+      return;
+    }
+    if (AudioController.midiAccess === undefined) {
+      AudioController.midiAccess = await navigator.requestMIDIAccess();
+    }
+    let device: MIDIInput | undefined;
+    if (deviceId !== undefined) {
+      device = AudioController.midiAccess.inputs.get(deviceId); 
+    }
+    if (device === undefined) {
+      device = AudioController.midiAccess.inputs.values().next().value;
+    }
+    if (device === undefined) {
+      return;
+    }
+    await device.open();
+    device.addEventListener("midimessage", AudioController.midiListener);
+    AudioController.midi = device;
   }
 
   public static async setProcessor(script: string) {

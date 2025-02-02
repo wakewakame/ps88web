@@ -7,6 +7,7 @@ import { AudioController } from './controller/AudioController';
 const App = () => {
   const [inputs, setInputs] = useState<Option[]>([]);
   const [outputs, setOutputs] = useState<Option[]>([]);
+  const [midis, setMIDIs] = useState<Option[]>([]);
   const [editor, setEditor] = useState<boolean>(false);
 
   const defaultCode =
@@ -72,6 +73,14 @@ return { audio, gui };
       })))
       .then(setOutputs);
   };
+  const getMIDIs = () => {
+    AudioController.getMIDIs()
+      .then((devices) => devices.map((device) => ({
+        id: device.deviceId,
+        name: device.deviceName,
+      })))
+      .then(setMIDIs);
+  };
   const setDisplay = async (enable: boolean) => {
     await AudioController.setDisplay(enable);
     AudioController.setProcessor(code);
@@ -84,7 +93,9 @@ return { audio, gui };
     await AudioController.setOutput(enable, id);
     AudioController.setProcessor(code);
   };
-  const dummyMidis = [...Array(5)].map((_, i) => ({ id: `${i + 1}`, name: `Option ${i + 1}` }));
+  const setMIDI = async (enable: boolean, id?: string) => {
+    await AudioController.setMIDI(enable, id);
+  };
 
   const onMouse = (event: "up" | "down" | "move", x: number, y: number) => {
     AudioController.setMouse(event, x, y);
@@ -100,7 +111,7 @@ return { audio, gui };
         <ButtonSelector icon="monitor" onChange={setDisplay} />
         <ButtonSelector icon="mic" options={inputs} onOpen={getInputs} onChange={setInput} />
         <ButtonSelector icon="volume_up" options={outputs} onOpen={getOutputs} onChange={setOutput} />
-        <ButtonSelector icon="piano" options={dummyMidis} />
+        <ButtonSelector icon="piano" options={midis} onOpen={getMIDIs} onChange={setMIDI} />
         <ButtonSelector icon="code" onChange={(enable) => setEditor(enable)} />
       </div>
       <div className="w-full h-[calc(100dvh-(var(--spacing)*16))] relative">
