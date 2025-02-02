@@ -5,7 +5,7 @@ type CanvasArgs = {
   height: number;
 };
 
-const Canvas = ({ width, height }: CanvasArgs) => {
+export const Canvas = ({ width, height }: CanvasArgs) => {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvasElem = canvas.current;
@@ -43,5 +43,3 @@ const Canvas = ({ width, height }: CanvasArgs) => {
     <canvas ref={canvas} width={`${width}`} height={`${height}`} className="size-full object-contain absolute"></canvas>
   );
 };
-
-export default Canvas;
