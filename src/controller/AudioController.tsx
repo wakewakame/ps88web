@@ -130,6 +130,25 @@ export const AudioController = class {
   private static input?: { stream: MediaStream, node: MediaStreamAudioSourceNode };
 
   /**
+   * ディスプレイの指定
+   */
+  public static async setDisplay(enable: boolean) {
+    if (AudioController.input !== undefined) {
+      AudioController.input.node.disconnect();
+      AudioController.input.stream.getAudioTracks().forEach((track) => track.stop());
+    }
+    if (!enable) {
+      AudioController.input = undefined;
+      return;
+    }
+    const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+    const contexts = await AudioController.getContexts();
+    const source = contexts.ctx.createMediaStreamSource(stream);
+    source.connect(contexts.proc);
+    AudioController.input = { stream, node: source };
+  }
+
+  /**
    * マイクの指定
    *
    * @param enable - true=マイク有効化, false=マイク無効化

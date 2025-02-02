@@ -72,6 +72,10 @@ return { audio, gui };
       })))
       .then(setOutputs);
   };
+  const setDisplay = async (enable: boolean) => {
+    await AudioController.setDisplay(enable);
+    AudioController.setProcessor(code);
+  };
   const setInput = async (enable: boolean, id?: string) => {
     await AudioController.setInput(enable, id);
     AudioController.setProcessor(code);
@@ -93,7 +97,7 @@ return { audio, gui };
   return (
     <div className="flex flex-col h-dvh">
       <div className="w-full h-16 py-2 flex flex-row gap-4 items-center justify-center">
-        <ButtonSelector icon="monitor" />
+        <ButtonSelector icon="monitor" onChange={setDisplay} />
         <ButtonSelector icon="mic" options={inputs} onOpen={getInputs} onChange={setInput} />
         <ButtonSelector icon="volume_up" options={outputs} onOpen={getOutputs} onChange={setOutput} />
         <ButtonSelector icon="piano" options={dummyMidis} />
