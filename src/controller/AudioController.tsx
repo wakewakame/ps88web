@@ -158,7 +158,13 @@ export const AudioController = class {
       AudioController.input = undefined;
       return;
     }
-    const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      audio: {
+        autoGainControl: false,
+        echoCancellation: false,
+        noiseSuppression: false,
+      },
+    });
     const contexts = await AudioController.getContexts();
     const source = contexts.ctx.createMediaStreamSource(stream);
     source.connect(contexts.proc);
@@ -183,9 +189,15 @@ export const AudioController = class {
     const found =
       (deviceId !== undefined) &&
       AudioController.devices?.some((device) => (device.kind === "audioinput" && device.deviceId === deviceId));
-    const options: MediaStreamConstraints = (found) ?
-      { video: false, audio: { deviceId: { exact: deviceId } } } :
-      { video: false, audio: true };
+    const options: MediaStreamConstraints = {
+      audio: {
+        autoGainControl: false,
+        deviceId: found ? { exact: deviceId } : undefined,
+        echoCancellation: false,
+        noiseSuppression: false,
+      },
+      video: false,
+    };
     const stream = await navigator.mediaDevices.getUserMedia(options);
     const contexts = await AudioController.getContexts();
     const source = contexts.ctx.createMediaStreamSource(stream);
