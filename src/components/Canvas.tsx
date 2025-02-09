@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
+import * as Types from "../controller/AudioControllerTypes";
 
 type CanvasArgs = {
   width: number;
   height: number;
-  onMouse?: (event: "up" | "down" | "move", x: number, y: number) => void;
-  onDraw?: () => any[];
+  onMouse?: (event: Types.MouseEvent, x: number, y: number) => void;
+  onDraw?: (w: number, h: number) => Types.Shape[];
 };
 
 export const Canvas = ({ width, height, onMouse, onDraw }: CanvasArgs) => {
@@ -14,69 +15,80 @@ export const Canvas = ({ width, height, onMouse, onDraw }: CanvasArgs) => {
     if (canvasElem === null) return;
 
     let mouse = { x: 0, y: 0 };
-    const getMousePosition = (e: MouseEvent) => {
+    const getMousePosition = (e: MouseEvent): { x: number, y: number } => {
       const xFit = canvasElem.clientWidth / canvasElem.clientHeight < width / height;
       const scale = xFit ? width / canvasElem.clientWidth : height / canvasElem.clientHeight;
       const xOffset = xFit ? 0 : (canvasElem.clientWidth - width / scale) / 2;
       const yOffset = xFit ? (canvasElem.clientHeight - height / scale) / 2 : 0;
-      mouse = { x: scale * (e.offsetX - xOffset), y: scale * (e.offsetY - yOffset) };
+      return { x: scale * (e.offsetX - xOffset), y: scale * (e.offsetY - yOffset) };
     };
-    const mouseUp = () => { onMouse?.('up', mouse.x, mouse.y); };
-    const mouseDown = () => { onMouse?.('down', mouse.x, mouse.y); };
-    const mouseMove = (event: MouseEvent) => { getMousePosition(event); onMouse?.('move', mouse.x, mouse.y); };
-    canvasElem.addEventListener('mouseup', mouseUp);
-    canvasElem.addEventListener('mousedown', mouseDown);
-    canvasElem.addEventListener('mousemove', mouseMove);
+    const mouseUp = (e: MouseEvent) => {
+      if (e.button === 0) onMouse?.("upL", mouse.x, mouse.y);
+      if (e.button === 2) onMouse?.("upR", mouse.x, mouse.y);
+    };
+    const mouseDown = (e: MouseEvent) => {
+      if (e.button === 0) onMouse?.("dwL", mouse.x, mouse.y);
+      if (e.button === 2) onMouse?.("dwR", mouse.x, mouse.y);
+    };
+    const mouseMove = (e: MouseEvent) => {
+      mouse = getMousePosition(e);
+      onMouse?.("move", mouse.x, mouse.y);
+    };
+    canvasElem.addEventListener("mouseup", mouseUp);
+    canvasElem.addEventListener("mousedown", mouseDown);
+    canvasElem.addEventListener("mousemove", mouseMove);
 
-    const ctx = canvasElem.getContext('2d')!;
+    const ctx = canvasElem.getContext("2d")!;
     let ref: null | number = null;
     const loop = () => {
-      ctx.fillStyle = '#111';
+      ctx.fillStyle = "#111";
       ctx.fillRect(0, 0, width, height);
-      ctx.beginPath();
-      ctx.arc(mouse.x, mouse.y, 20, 0, 2 * Math.PI);
-      ctx.fillStyle = '#eee';
-      ctx.fill();
-      const shapes = (onDraw?.() ?? []);
-      shapes.map((shape) => Object.entries(shape)).forEach((elem) => elem.map(([key, value]: any) => {
-        if (key === "Polygon") {
-          if (value.shape !== undefined) {
-            ctx.beginPath();
-            for (let i: number = 0; i < value.shape.length / 2; i++) {
-              const x = value.shape[i * 2];
-              const y = value.shape[i * 2 + 1];
-              if (i === 0) {
-                ctx.moveTo(x, y);
-              } else {
-                ctx.lineTo(x, y);
-              }
+      const shapes = onDraw?.(width, height) ?? [];
+      for (let i = 0; i < shapes.length; i++) {
+        const shape = shapes[i];
+        if (Types.isShapePolygon(shape)) {
+          ctx.beginPath();
+          for (let j = 0; j < shape.shape.length; j++) {
+            const [x, y] = shape.shape[j];
+            if (j === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
             }
           }
-          if (value.fill !== undefined) {
-            ctx.fillStyle = `#${value.fill.toString(16).padStart(6, '0')}`;
+          if (shape.strokeClosed ?? false) {
+            ctx.closePath();
+          }
+          if (shape.fill != undefined) {
+            ctx.fillStyle = `#${shape.fill.toString(16).padStart(6, "0")}`;
             ctx.fill();
           }
-          if (value.stroke !== undefined) {
-            ctx.strokeStyle = `#${value.stroke.toString(16).padStart(6, '0')}`;
-            ctx.lineWidth = value.stroke_width ?? 1;
+          if (shape.stroke != undefined && shape.strokeWidth !== 0) {
+            ctx.strokeStyle = `#${shape.stroke.toString(16).padStart(6, "0")}`;
+            ctx.lineWidth = shape.strokeWidth ?? 1;
             ctx.stroke();
           }
+          continue;
         }
-        if (key === "Text") {
-          // TODO
+        if (Types.isShapeText(shape)) {
+          ctx.font = `${shape.size ?? 16}px "Roboto Mono"`;
+          ctx.fillStyle = `#${shape.color?.toString(16).padStart(6, "0") ?? "fff"}`;
+          ctx.fillText(shape.text, shape.x, shape.y);
+          continue;
         }
-      }));
+        console.assert(false, "unknown shape type", shape);
+      }
       ref = requestAnimationFrame(loop);
     };
     loop();
 
     return () => {
-      canvasElem.removeEventListener('mouseup', mouseUp);
-      canvasElem.removeEventListener('mousedown', mouseDown);
-      canvasElem.removeEventListener('mousemove', mouseMove);
+      canvasElem.removeEventListener("mouseup", mouseUp);
+      canvasElem.removeEventListener("mousedown", mouseDown);
+      canvasElem.removeEventListener("mousemove", mouseMove);
       if (ref !== null) cancelAnimationFrame(ref);
     };
-  }, [width, height]);
+  }, [width, height, onMouse, onDraw]);
   return (
     <canvas ref={canvas} width={`${width}`} height={`${height}`} className="size-full object-contain absolute"></canvas>
   );
