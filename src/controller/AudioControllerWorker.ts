@@ -5,23 +5,30 @@ class WaveformProcessor extends AudioWorkletProcessor {
   proc?: { audio: ProcessorTypes.AudioFunc, gui?: ProcessorTypes.GuiFunc };
   mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; };
   midi: Uint8Array[];
+  save: object;
 
-  constructor(/*_ :AudioWorkletNodeOptions*/) {
+  constructor(args :AudioWorkletNodeOptions) {
     super();
     this.proc = undefined;
     this.mouse = { x: 0, y: 0, pressedL: false, pressedR: false };
     this.midi = [];
+    this.save = (args.processorOptions as Types.ProcessorOptions)?.save ?? {};
 
     const sendMessage = (message: Types.RecvMessage) => {
       this.port.postMessage(message);
     }
+    const setProcessor: ProcessorTypes.SetProcessorFunc = (audio, gui) => {
+      this.proc = { audio, gui };
+    };
+    const save = (data: object, merge?: boolean) => {
+      merge = merge ?? true;
+      this.port.postMessage({ type: "save", data: this.save, merge });
+      this.save = merge ? { ...this.save, ...data } : data;
+    };
     this.port.addEventListener("message", (event: MessageEvent) => {
       if (Types.isSendMessageBuild(event.data)) {
         try {
-          const setProcessor: ProcessorTypes.SetProcessorFunc = (audio, gui) => {
-            this.proc = { audio, gui };
-          };
-          (new Function('setProcessor', event.data.code))(setProcessor);
+          (new Function('setProcessor', 'savedata', 'save', event.data.code))(setProcessor, this.save, save);
         } catch (e) {
           this.proc = undefined;
           console.error(e);

@@ -93,12 +93,20 @@ const AudioController = class {
     if (AudioController.context == undefined) {
       const ctx = new AudioContext({ latencyHint: 0 });
 
+      const processorOptions: Types.ProcessorOptions = { save: {} };
+      try {
+        processorOptions.save = JSON.parse(localStorage.getItem("processor") ?? "{}");
+      } catch(e) {
+        console.error(e);
+      }
+
       // worker の読み込み
       await ctx.audioWorklet.addModule(workerUrl);
       const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [2],
+        processorOptions: processorOptions,
         channelCount: 2,
         channelCountMode: "explicit",
         channelInterpretation: "speakers",
@@ -122,6 +130,25 @@ const AudioController = class {
     }
     if (Types.isRecvMessageDraw(event.data)) {
       AudioController.context.canvas = event.data.shapes;
+      return;
+    }
+    if (Types.isRecvMessageSave(event.data)) {
+      let data = event.data.data;
+      if (event.data.merge) {
+        let save: object;
+        try {
+          save = JSON.parse(localStorage.getItem("processor") ?? "{}");
+        } catch(e) {
+          console.error(e);
+          return;
+        }
+        data = { ...save, ...data };
+      }
+      try {
+        localStorage.setItem("processor", JSON.stringify(data));
+      } catch(e) {
+        console.error(e);
+      }
       return;
     }
     console.assert(false, "unknown message type", event.data);

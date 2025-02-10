@@ -18,7 +18,8 @@ const App = () => {
   const [outputs, setOutputs] = useState<Option[] | null>([]);
   const [midis, setMIDIs] = useState<Option[] | null>([]);
 
-  const [code, setCode] = useState<string>(defaultProcessorCode);
+  const defaultCode = localStorage.getItem("code") ?? defaultProcessorCode;
+  const [code, setCode] = useState<string>(defaultCode);
   const [hotReloadTimeout, sethotReloadTimeout] = useState<number | undefined>();
   const onCodeChange = (code?: string) => {
     if (hotReloadTimeout !== undefined) {
@@ -30,6 +31,7 @@ const App = () => {
     sethotReloadTimeout(setTimeout(() => {
       AudioController.build(code);
       setCode(code);
+      localStorage.setItem("code", code);
     }, 1000));
   };
 
@@ -127,7 +129,7 @@ const App = () => {
             onChange={onCodeChange}
             className="size-full absolute opacity-70"
             defaultLanguage="javascript"
-            defaultValue={defaultProcessorCode}
+            defaultValue={defaultCode}
             theme="vs-dark"
           />
         </div>
