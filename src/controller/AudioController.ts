@@ -133,19 +133,8 @@ const AudioController = class {
       return;
     }
     if (Types.isRecvMessageSave(event.data)) {
-      let data = event.data.data;
-      if (event.data.merge) {
-        let save: object;
-        try {
-          save = JSON.parse(localStorage.getItem("processor") ?? "{}");
-        } catch(e) {
-          console.error(e);
-          return;
-        }
-        data = { ...save, ...data };
-      }
       try {
-        localStorage.setItem("processor", JSON.stringify(data));
+        localStorage.setItem("processor", JSON.stringify(event.data.data));
       } catch(e) {
         console.error(e);
       }

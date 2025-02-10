@@ -20,10 +20,9 @@ class WaveformProcessor extends AudioWorkletProcessor {
     const setProcessor: ProcessorTypes.SetProcessorFunc = (audio, gui) => {
       this.proc = { audio, gui };
     };
-    const save = (data: object, merge?: boolean) => {
-      merge = merge ?? true;
-      this.port.postMessage({ type: "save", data: this.save, merge });
-      this.save = merge ? { ...this.save, ...data } : data;
+    const save = (data: object) => {
+      this.save = data;
+      this.port.postMessage({ type: "save", data: this.save });
     };
     this.port.addEventListener("message", (event: MessageEvent) => {
       if (Types.isSendMessageBuild(event.data)) {

@@ -1,33 +1,87 @@
-console.log("Hello, World!");
+console.log("hello");
+//return;
+console.log("world");
 
-let wave = [];
-let count = 0;
+save({"testtest": 100});
+console.log(savedata);
 
-const audio = (ctx) => {
-  wave = wave.concat([...ctx.audio[0]]).slice(-1024);
-  for (ch = 0; ch < ctx.audio.length; ch++) {
-    for (i = 0; i < ctx.audio[ch].length; i++) {
-      if (ch === 0) {
-        count += 1;
-        ctx.audio[ch][i] = Math.sin(440 * 2 * Math.PI * count / ctx.sampleRate) * 0.1;
-      } else {
-        ctx.audio[ch][i] = ctx.audio[0][i];
+const toMono = (audio) => {
+  return audio.reduce((ch1, ch2, ch) => (
+    ch === 0 ?
+      ch1 :
+      ch1.map((val, j) => (0.5 * (val + ch2[j])))
+  ));
+};
+const fromMono = (audio, mono) => {
+  audio.map((ch) => {
+    ch.map((_, i) => {
+      ch[i] = mono[i];
+    });
+  });
+};
+const map = (mono, callback) => {
+  mono.map((_, i) => {
+    mono[i] = callback(mono[i], i);
+  });
+};
+
+const Buffer = class {
+  constructor(length) {
+    this.length = length;
+    this.buffer = [];
+  }
+  add(stereo) {
+    for (let i = 0; i < stereo.length; i++) {
+      if (this.buffer.length < i + 1) {
+        this.buffer.push([...Array(this.length)].map(() => (0)));
       }
+      this.buffer[i] = this.buffer[i].concat([...stereo[i]]).slice(-this.length);
     }
   }
+  get() {
+    return this.buffer;
+  }
+};
+let buffer = new Buffer(4096);
+
+const rect = (ctx, x, y, w, h, fill, stroke) => {
+  ctx.addShape([[x, y], [x+w, y], [x+w, y+h], [x, y+h]], {fill, stroke, strokeClosed: true });
+};
+
+const show = (mono, x, y, w, h, scale) => {
+  const shape = [...Array(w >>> 0)].map((_, i) => {
+    const mi = Math.floor(mono.length * i / w);
+    const my = (scale * mono[mi] * 0.5 + 0.5) * h;
+    return [x + i, y + my];
+  });
+  return shape;
+};
+
+const show2 = (ctx, mono, x, y, w, h, scale) => {
+  const shape = show(mono, x, y, w, h, scale);
+  ctx.addShape(shape, {stroke: 0xFFFFFF});
+  rect(ctx, x, y, w, h, undefined, 0xFFFFFF);
+};
+
+const audio = (ctx) => {
+  buffer.add(ctx.audio);
+  const mono = toMono(ctx.audio);
+  map(mono, (_, i) => {
+    return Math.sin(440 * 2 * Math.PI * (ctx.currentFrame + i) / ctx.sampleRate) * 0.1;
+  });
+  fromMono(ctx.audio, mono);
 };
 
 const gui = (ctx) => {
-  const w = [...Array(ctx.w)].map((_, x) => {
-    const wi = Math.floor(wave.length * x / ctx.w);
-    const y = wave[wi] * 500.0 + ctx.h * 0.5;
-    return [x, y];
+  rect(ctx, 0, 0, ctx.w, ctx.h, 0xAA4488);
+
+  buffer.get().map((buf, i) => {
+    show2(ctx, buf, 180, 120 + 120 * i, 360, 120, 5);
   });
-  ctx.addShape(w, {stroke: 0xFFFFFF});
 
   ctx.addText("Hello, World!", ctx.mouse.x, ctx.mouse.y, {
-    size: 48,
-    color: ctx.mouse.pressedL ? 0xFF0000 : 0xFFFFFF,
+    size: 16,
+    color: ctx.mouse.pressedL ? 0xFF44AA : 0xFFFFFF,
   });
 };
 

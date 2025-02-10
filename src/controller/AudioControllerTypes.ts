@@ -41,7 +41,6 @@ export const isRecvMessageDraw = (msg: RecvMessage): msg is RecvMessageDraw => (
 export type RecvMessageSave = {
   type: "save",
   data: object,
-  merge: boolean,
 };
 export const isRecvMessageSave = (msg: RecvMessage): msg is RecvMessageSave => (msg.type === "save");
 
