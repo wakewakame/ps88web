@@ -90,6 +90,12 @@ export const Canvas = ({ width, height, onMouse, onDraw }: CanvasArgs) => {
     };
   }, [width, height, onMouse, onDraw]);
   return (
-    <canvas ref={canvas} width={`${width}`} height={`${height}`} className="size-full object-contain absolute"></canvas>
+    <canvas
+      ref={canvas}
+      width={`${width}`}
+      height={`${height}`}
+      className="size-full object-contain absolute"
+      style={{imageRendering: "pixelated"}}
+    ></canvas>
   );
 };
