@@ -14,7 +14,7 @@ https://github.com/wakewakame/ps88
 git clone https://github.com/wakewakame/ps88web.git
 cd ps88web
 npm install
-npm dev
+npm run dev
 ```
 
 # TODO

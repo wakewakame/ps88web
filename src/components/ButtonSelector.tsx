@@ -83,7 +83,7 @@ type OptionsArgs = {
 const Options = ({ options, open, selected, onSelected }: OptionsArgs) => {
   return (
     <div className={`
-      ${open ? "max-h-40 mt-1" : "max-h-0 opacity-0 invisible"} rounded-md bg-zinc-700 shadow-xl overflow-scroll
+      ${open ? "max-h-40 mt-1" : "max-h-0 opacity-0 invisible"} rounded-md bg-zinc-700 shadow-xl overflow-auto
       transition-all duration-150 ease-in-out
     `}>
       <div className="flex flex-col">
