@@ -2,65 +2,71 @@ import * as Types from "./AudioControllerTypes.ts";
 import * as ProcessorTypes from "./ProcessorTypes.ts";
 
 class WaveformProcessor extends AudioWorkletProcessor {
-  proc?: { audio: ProcessorTypes.AudioFunc, gui?: ProcessorTypes.GuiFunc };
-  mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; };
-  midi: Uint8Array[];
-  save: object;
+  audioCallback?: ProcessorTypes.AudioFunc;
+  guiCallback?: ProcessorTypes.GuiFunc;
+  save: Types.SaveData;
+  midi: ProcessorTypes.NoteEvent[] = [];
 
   constructor(args :AudioWorkletNodeOptions) {
     super();
-    this.proc = undefined;
-    this.mouse = { x: 0, y: 0, pressedL: false, pressedR: false };
-    this.midi = [];
-    this.save = (args.processorOptions as Types.ProcessorOptions)?.save ?? {};
+    this.save = (args.processorOptions as Types.ProcessorOptions)?.save ?? null;
 
-    const sendMessage = (message: Types.RecvMessage) => {
+    const recvMessage = (message: Types.RecvMessage) => {
       this.port.postMessage(message);
     }
-    const setProcessor: ProcessorTypes.SetProcessorFunc = (audio, gui) => {
-      this.proc = { audio, gui };
+
+    const api: ProcessorTypes.Api = {
+      audio: (callback: ProcessorTypes.AudioFunc) => {
+        if (typeof callback !== "function") {
+          throw new TypeError("argument must be a function");
+        }
+        this.audioCallback = callback;
+      },
+      gui: (callback: ProcessorTypes.GuiFunc) => {
+        if (typeof callback !== "function") {
+          throw new TypeError("argument must be a function");
+        }
+        this.guiCallback = callback;
+      },
+      save: (data: ProcessorTypes.SaveData) => {
+        if (data instanceof Uint8Array) { this.save = { type: "bytes", data }; }
+        else if (typeof data === "string") { this.save = { type: "string", data }; }
+        else if (data == undefined) { this.save = null; }
+        else { throw new TypeError("argument must be a Uint8Array, string, null, or undefined"); }
+        recvMessage({ type: "save", data: this.save });
+      },
+      load: () => {
+        if (Types.isSaveDataBytes(this.save)) { return this.save.data; }
+        else if (Types.isSaveDataText(this.save)) { return this.save.data; }
+        else { return null; }
+      }
     };
-    const save = (data: object) => {
-      this.save = data;
-      this.port.postMessage({ type: "save", data: this.save });
-    };
+
     this.port.addEventListener("message", (event: MessageEvent) => {
       if (Types.isSendMessageBuild(event.data)) {
         try {
-          (new Function('setProcessor', 'savedata', 'save', event.data.code))(setProcessor, this.save, save);
+          (new Function('ps88', event.data.code))(api);
         } catch (e) {
-          this.proc = undefined;
+          this.audioCallback = undefined;
+          this.guiCallback = undefined;
           console.error(e);
         }
         return;
       }
-      if (Types.isSendMessageMouse(event.data)) {
-        this.mouse.x = event.data.x;
-        this.mouse.y = event.data.y;
-        this.mouse.pressedL =
-          event.data.event === "dwL" ? true :
-          event.data.event === "upL" ? false :
-          this.mouse.pressedL;
-        this.mouse.pressedR =
-          event.data.event === "dwR" ? true :
-          event.data.event === "upR" ? false :
-          this.mouse.pressedR;
-        return;
-      }
       if (Types.isSendMessageDraw(event.data)) {
-        if (this.proc?.gui != undefined) {
+        if (this.guiCallback != undefined) {
           const shapes: Types.Shape[] = [];
           const ctx: ProcessorTypes.GuiContext = {
-            w: event.data.size.w,
-            h: event.data.size.h,
-            mouse: this.mouse,
-            addShape: (shape: [number, number][], options?: {
+            w: event.data.w,
+            h: event.data.h,
+            mouse: event.data.mouse,
+            addPolygon: (path: [number, number][], options?: {
               fill?: number,
               stroke?: number,
               strokeWidth?: number,
               strokeClosed?: boolean,
             }) => {
-              shapes.push({ type: "polygon", shape, ...options });
+              shapes.push({ type: "polygon", path, ...options });
             },
             addText: (text: string, x: number, y: number, options?: {
               size?: number,
@@ -70,12 +76,13 @@ class WaveformProcessor extends AudioWorkletProcessor {
             },
           };
           try {
-            this.proc.gui(ctx);
+            this.guiCallback(ctx);
           } catch (e) {
-            this.proc = undefined;
+            this.audioCallback = undefined;
+            this.guiCallback = undefined;
             console.error(e);
           }
-          sendMessage({ type: "draw", shapes });
+          recvMessage({ type: "draw", shapes });
         }
         return;
       }
@@ -89,30 +96,27 @@ class WaveformProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
-    if (outputs.length === 0 || outputs[0].length === 0) {
-      return true;
-    }
-    const audio = this.proc?.audio;
-    if (audio != undefined && outputs.length > 0) {
-      // 入力があるなら出力にコピーする
-      if (inputs.length > 0) {
-        for (let ch = 0; ch < inputs[0].length; ch++) {
-          for (let i = 0; i < inputs[0][ch].length; i++) {
-            outputs[0][ch][i] = inputs[0][ch][i];
+    if (this.audioCallback != undefined) {
+      // 入力を出力にコピー
+      for (let input = 0; input < Math.min(inputs.length, outputs.length); input++) {
+        for (let ch = 0; ch < Math.min(inputs[input].length, outputs[input].length); ch++) {
+          for (let sample = 0; sample < Math.min(inputs[input][ch].length, outputs[input][ch].length); sample++) {
+            outputs[input][ch][sample] = inputs[0][ch][sample];
           }
         }
       }
       const ctx: ProcessorTypes.AudioContext = {
-        audio: outputs[0],
+        audio: outputs[0] ?? [],
         midi: this.midi,
         sampleRate: sampleRate,
-        currentFrame: currentFrame,
+        posSamples: 0,
         bpm: 120,
       };
       try {
-        audio(ctx);
+        this.audioCallback(ctx);
       } catch (e) {
-        this.proc = undefined;
+        this.audioCallback = undefined;
+        this.guiCallback = undefined;
         console.error(e);
       }
       this.midi = [];

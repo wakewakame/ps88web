@@ -4,52 +4,48 @@ import * as Types from "../controller/AudioControllerTypes";
 type CanvasArgs = {
   width: number;
   height: number;
-  onMouse?: (event: Types.MouseEvent, x: number, y: number) => void;
-  onDraw?: (w: number, h: number) => Types.Shape[];
+  onDraw?: (w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) => Types.Shape[];
 };
 
-export const Canvas = ({ width, height, onMouse, onDraw }: CanvasArgs) => {
+export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvasElem = canvas.current;
     if (canvasElem === null) return;
 
-    let mouse = { x: 0, y: 0 };
-    const getMousePosition = (e: MouseEvent): { x: number, y: number } => {
+    const mouse = { x: 0, y: 0, pressedL: false, pressedR: false }
+    const pointerUp = (e: PointerEvent) => {
+      if (e.button === 0) mouse.pressedL = false;
+      if (e.button === 2) mouse.pressedR = false;
+    };
+    const pointerDown = (e: PointerEvent) => {
+      if (e.button === 0) mouse.pressedL = true;
+      if (e.button === 2) mouse.pressedR = true;
+    };
+    const pointerMove = (e: PointerEvent) => {
       const xFit = canvasElem.clientWidth / canvasElem.clientHeight < width / height;
       const scale = xFit ? width / canvasElem.clientWidth : height / canvasElem.clientHeight;
       const xOffset = xFit ? 0 : (canvasElem.clientWidth - width / scale) / 2;
       const yOffset = xFit ? (canvasElem.clientHeight - height / scale) / 2 : 0;
-      return { x: scale * (e.offsetX - xOffset), y: scale * (e.offsetY - yOffset) };
+      mouse.x = scale * (e.offsetX - xOffset);
+      mouse.y = scale * (e.offsetY - yOffset);
     };
-    const mouseUp = (e: MouseEvent) => {
-      if (e.button === 0) onMouse?.("upL", mouse.x, mouse.y);
-      if (e.button === 2) onMouse?.("upR", mouse.x, mouse.y);
-    };
-    const mouseDown = (e: MouseEvent) => {
-      if (e.button === 0) onMouse?.("dwL", mouse.x, mouse.y);
-      if (e.button === 2) onMouse?.("dwR", mouse.x, mouse.y);
-    };
-    const mouseMove = (e: MouseEvent) => {
-      mouse = getMousePosition(e);
-      onMouse?.("move", mouse.x, mouse.y);
-    };
-    canvasElem.addEventListener("mouseup", mouseUp);
-    canvasElem.addEventListener("mousedown", mouseDown);
-    canvasElem.addEventListener("mousemove", mouseMove);
+    canvasElem.addEventListener("pointerup", pointerUp);
+    canvasElem.addEventListener("pointerdown", pointerDown);
+    canvasElem.addEventListener("pointermove", pointerMove);
 
     const ctx = canvasElem.getContext("2d")!;
     let ref: null | number = null;
     const loop = () => {
       ctx.fillStyle = "#111";
       ctx.fillRect(0, 0, width, height);
-      const shapes = onDraw?.(width, height) ?? [];
+      const shapes = onDraw?.(width, height, mouse) ?? [];
       for (let i = 0; i < shapes.length; i++) {
         const shape = shapes[i];
         if (Types.isShapePolygon(shape)) {
           ctx.beginPath();
-          for (let j = 0; j < shape.shape.length; j++) {
-            const [x, y] = shape.shape[j];
+          for (let j = 0; j < shape.path.length; j++) {
+            const [x, y] = shape.path[j];
             if (j === 0) {
               ctx.moveTo(x, y);
             } else {
@@ -83,12 +79,12 @@ export const Canvas = ({ width, height, onMouse, onDraw }: CanvasArgs) => {
     loop();
 
     return () => {
-      canvasElem.removeEventListener("mouseup", mouseUp);
-      canvasElem.removeEventListener("mousedown", mouseDown);
-      canvasElem.removeEventListener("mousemove", mouseMove);
+      canvasElem.removeEventListener("pointerup", pointerUp);
+      canvasElem.removeEventListener("pointerdown", pointerDown);
+      canvasElem.removeEventListener("pointermove", pointerMove);
       if (ref !== null) cancelAnimationFrame(ref);
     };
-  }, [width, height, onMouse, onDraw]);
+  }, [width, height, onDraw]);
   return (
     <canvas
       ref={canvas}

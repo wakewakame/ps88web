@@ -86,8 +86,8 @@ const App = () => {
     AudioController.build(code);
   };
 
-  const onDraw = (w: number, h: number) => {
-    AudioController.draw(w, h);
+  const onDraw = (w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) => {
+    AudioController.draw(w, h, mouse);
     return AudioController.getShapes();
   };
 
@@ -124,7 +124,7 @@ const App = () => {
           onChange={(enable) => setEditorToggle(enable)} />
       </div>
       <div className="w-full h-[calc(100dvh-(var(--spacing)*16))] relative">
-        <Canvas width={640} height={480} onMouse={AudioController.mouse} onDraw={onDraw}></Canvas>
+        <Canvas width={640} height={480} onDraw={onDraw}></Canvas>
         <div className={`size-full ${editorToggle ? "" : "opacity-0 invisible"} transition-all duration-100 ease-in-out`}>
           <Editor
             onChange={onCodeChange}

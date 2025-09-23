@@ -70,28 +70,40 @@ const AudioController = class {
     context.midi?.addEventListener("midimessage", AudioController.onMIDIMessage);
   }
 
-  public static async onMIDIMessage(event: MIDIMessageEvent) {
+  /**
+   * MIDI メッセージの送信
+   *
+   * @param event - MIDIMessageEvent
+   */
+  public static onMIDIMessage(event: MIDIMessageEvent) {
     if (event.data != null) {
-      // 0-3 byte: イベントが発生した時刻 (単位は input のインデックス番号)
-      //   4 byte: 上位 4 bit: イベントの種類 (0x9: Note On, 0x8: Note Off)
-      //           下位 4 bit: チャンネル番号 (0-15)
-      //   5 byte: ノート番号 (0-127)
-      //   6 byte: ベロシティ (1-127)
-      const newData = new Uint8Array([0, 0, 0, 0, event.data[0], event.data[1], event.data[2]]);
-      AudioController.sendMessage({ type: "midi", data: newData });
+      const channel = event.data[0] & 0x0f;
+      const type = event.data[0] >> 4;
+      const note = event.data[1];
+      const velocity = event.data[2] / 127.0;
+      if (type === 0x9) {
+        AudioController.sendMessage({
+          type: "midi",
+          data: { type: "NoteOn", timing: 0, channel, note, velocity },
+        });
+        return;
+      }
+      if (type === 0x8) {
+        AudioController.sendMessage({
+          type: "midi",
+          data: { type: "NoteOff", timing: 0, channel, note, velocity },
+        });
+        return;
+      }
     }
   }
 
-  public static async build(code: string) {
+  public static build(code: string) {
     AudioController.sendMessage({ type: "build", code: code });
   };
 
-  public static mouse(event: Types.MouseEvent, x: number, y: number) {
-    AudioController.sendMessage({ type: "mouse", event, x, y });
-  }
-
-  public static draw(w: number, h: number) {
-    AudioController.sendMessage({ type: "draw", size: { w, h } });
+  public static draw(w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) {
+    AudioController.sendMessage({ type: "draw", w, h, mouse });
   }
 
   public static getShapes(): Types.Shape[] {
@@ -105,9 +117,9 @@ const AudioController = class {
     if (AudioController.context == undefined) {
       const ctx = new AudioContext({ latencyHint: 0 });
 
-      const processorOptions: Types.ProcessorOptions = { save: {} };
+      const processorOptions: Types.ProcessorOptions = { save: null };
       try {
-        processorOptions.save = JSON.parse(localStorage.getItem("processor") ?? "{}");
+        processorOptions.save = JSON.parse(localStorage.getItem("processor") ?? "null");
       } catch(e) {
         console.error(e);
       }
@@ -146,7 +158,12 @@ const AudioController = class {
     }
     if (Types.isRecvMessageSave(event.data)) {
       try {
-        localStorage.setItem("processor", JSON.stringify(event.data.data));
+        const data = event.data.data;
+        if (data == undefined) {
+          localStorage.removeItem("processor");
+        } else {
+          localStorage.setItem("processor", JSON.stringify(data));
+        }
       } catch(e) {
         console.error(e);
       }
