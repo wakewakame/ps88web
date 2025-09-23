@@ -70,6 +70,18 @@ const AudioController = class {
     context.midi?.addEventListener("midimessage", AudioController.onMIDIMessage);
   }
 
+  public static async onMIDIMessage(event: MIDIMessageEvent) {
+    if (event.data != null) {
+      // 0-3 byte: イベントが発生した時刻 (単位は input のインデックス番号)
+      //   4 byte: 上位 4 bit: イベントの種類 (0x9: Note On, 0x8: Note Off)
+      //           下位 4 bit: チャンネル番号 (0-15)
+      //   5 byte: ノート番号 (0-127)
+      //   6 byte: ベロシティ (1-127)
+      const newData = new Uint8Array([0, 0, 0, 0, event.data[0], event.data[1], event.data[2]]);
+      AudioController.sendMessage({ type: "midi", data: newData });
+    }
+  }
+
   public static async build(code: string) {
     AudioController.sendMessage({ type: "build", code: code });
   };
@@ -141,18 +153,6 @@ const AudioController = class {
       return;
     }
     console.assert(false, "unknown message type", event.data);
-  }
-
-  private static async onMIDIMessage(event: MIDIMessageEvent) {
-    if (event.data != null) {
-      // 0-3 byte: イベントが発生した時刻 (単位は input のインデックス番号)
-      //   4 byte: 上位 4 bit: イベントの種類 (0x9: Note On, 0x8: Note Off)
-      //           下位 4 bit: チャンネル番号 (0-15)
-      //   5 byte: ノート番号 (0-127)
-      //   6 byte: ベロシティ (1-127)
-      const newData = new Uint8Array([0, 0, 0, 0, event.data[0], event.data[1], event.data[2]]);
-      AudioController.sendMessage({ type: "midi", data: newData });
-    }
   }
 };
 

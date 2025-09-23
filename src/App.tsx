@@ -2,6 +2,7 @@ import { useState } from "react";
 import Editor from "@monaco-editor/react";
 import { ButtonSelector, Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
+import { Keyboard } from "./components/Keyboard";
 import AudioDevices from "./controller/AudioDevices";
 import MIDIDevices from "./controller/MIDIDevices";
 import AudioController from "./controller/AudioController";
@@ -133,6 +134,9 @@ const App = () => {
             theme="vs-dark"
           />
         </div>
+      </div>
+      <div className="w-full h-16 pt-1 flex flex-row gap-4 items-center justify-center">
+        <Keyboard onMIDIMessage={ AudioController.onMIDIMessage } />
       </div>
     </div>
   );

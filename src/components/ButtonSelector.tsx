@@ -90,7 +90,7 @@ const Options = ({ options, open, selected, onSelected }: OptionsArgs) => {
         {options.map((option) => (
           <button key={option.id} onClick={() => onSelected(option.id)}
             className={`
-              px-2 rounded-md text-left break-words text-1xl text-zinc-100 cursor-pointer
+              px-2 rounded-md text-left break-words text-xl text-zinc-100 cursor-pointer
               ${(option.id === selected) ? "bg-blue-400 hover:bg-blue-300" : "hover:bg-zinc-600"}
               transition-all duration-150 ease-in-out
             `}
