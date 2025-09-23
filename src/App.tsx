@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { ButtonSelector, Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
@@ -91,9 +91,12 @@ const App = () => {
     return AudioController.getShapes();
   };
 
+  const appRef = useRef<HTMLDivElement>(null);
+  appRef.current?.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
+
   return (
-    <div className="flex flex-col h-dvh">
-      <div className="w-full h-16 py-2 flex flex-row gap-4 items-center justify-center">
+    <div ref={appRef} className="flex flex-col h-dvh select-none">
+      <div className="w-full h-16 py-2 box-border flex-none flex flex-row gap-4 items-center justify-center">
         <ButtonSelector
           icon="monitor"
           enable={displayToggle}
@@ -123,7 +126,7 @@ const App = () => {
           enable={editorToggle}
           onChange={(enable) => setEditorToggle(enable)} />
       </div>
-      <div className="w-full h-[calc(100dvh-(var(--spacing)*16))] relative">
+      <div className="w-full flex-auto box-border relative">
         <Canvas width={640} height={480} onDraw={onDraw}></Canvas>
         <div className={`size-full ${editorToggle ? "" : "opacity-0 invisible"} transition-all duration-100 ease-in-out`}>
           <Editor
@@ -135,7 +138,7 @@ const App = () => {
           />
         </div>
       </div>
-      <div className="w-full h-16 pt-1 flex flex-row gap-4 items-center justify-center">
+      <div className="w-full h-16 pt-1 box-border flex-none">
         <Keyboard onMIDIMessage={ AudioController.onMIDIMessage } />
       </div>
     </div>
