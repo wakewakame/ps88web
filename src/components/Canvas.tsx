@@ -63,11 +63,11 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
             ctx.closePath();
           }
           if (shape.fill != undefined) {
-            ctx.fillStyle = `#${shape.fill.toString(16).padStart(6, "0")}`;
+            ctx.fillStyle = `#${shape.fill.toString(16).padStart(8, "0")}`;
             ctx.fill();
           }
           if (shape.stroke != undefined && shape.strokeWidth !== 0) {
-            ctx.strokeStyle = `#${shape.stroke.toString(16).padStart(6, "0")}`;
+            ctx.strokeStyle = `#${shape.stroke.toString(16).padStart(8, "0")}`;
             ctx.lineWidth = shape.strokeWidth ?? 1;
             ctx.stroke();
           }
@@ -75,7 +75,7 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
         }
         if (Types.isShapeText(shape)) {
           ctx.font = `${shape.size ?? 16}px "Roboto Mono"`;
-          ctx.fillStyle = `#${shape.color?.toString(16).padStart(6, "0") ?? "fff"}`;
+          ctx.fillStyle = `#${shape.color?.toString(16).padStart(8, "0") ?? "fff"}`;
           ctx.fillText(shape.text, shape.x, shape.y);
           continue;
         }

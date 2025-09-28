@@ -7,6 +7,7 @@ import AudioDevices from "./controller/AudioDevices";
 import MIDIDevices from "./controller/MIDIDevices";
 import AudioController from "./controller/AudioController";
 import defaultProcessorCode from "./controller/Processor?raw";
+import ps88_d_ts from "./ps88.d.ts?raw";
 
 const App = () => {
   const [isOutputInit, setIsOutputInit] = useState<boolean>(false);
@@ -131,7 +132,33 @@ const App = () => {
 
   return (
     <div ref={appRef} className="flex flex-col h-dvh select-none">
-      <div className="w-full h-16 py-2 box-border flex-none flex flex-row gap-4 items-center justify-center">
+      <div className="w-full h-16 py-2 box-border flex-none flex flex-row gap-4 items-center justify-center relative">
+        <div className="absolute right-4">
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 mx-1"
+            href="./docs/index.html"
+          >
+            Docs
+          </a>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 mx-1"
+            href="./examples/index.html"
+          >
+            Examples
+          </a>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 mx-1"
+            href="https://github.com/wakewakame/ps88web"
+          >
+            GitHub
+          </a>
+        </div>
         <ButtonSelector
           icon="monitor"
           enable={displayToggle}
@@ -176,6 +203,14 @@ const App = () => {
         >
           <Editor
             onChange={onCodeChange}
+            onMount={(_, monaco) => {
+              // 補完用の型定義を追加
+              monaco.languages.typescript.javascriptDefaults.addExtraLib(
+                ps88_d_ts,
+                "ps88.d.ts",
+              );
+              monaco.languages;
+            }}
             className="size-full absolute opacity-70"
             defaultLanguage="javascript"
             defaultValue={defaultCode}

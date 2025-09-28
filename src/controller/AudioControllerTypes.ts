@@ -1,4 +1,4 @@
-import * as ProcessorTypes from "./ProcessorTypes.ts";
+import type * as PS88 from "../ps88.d.ts";
 
 // worker のコンストラクタに渡すオプションの型
 export type ProcessorOptions = {
@@ -58,7 +58,7 @@ export const isSaveDataText = (data: SaveData): data is SaveDataText =>
   data?.type === "string";
 
 // MIDI イベントの型
-export type NoteEvent = ProcessorTypes.NoteEvent;
+export type NoteEvent = PS88.NoteEvent;
 
 // GUI 描画用の図形の型
 export type Shape = ShapePolygon | ShapeText;

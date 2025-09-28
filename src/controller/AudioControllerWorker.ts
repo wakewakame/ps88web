@@ -1,12 +1,12 @@
 /// <reference types="audioworklet" />
 import * as Types from "./AudioControllerTypes.ts";
-import * as ProcessorTypes from "./ProcessorTypes.ts";
+import type * as PS88 from "../ps88.d.ts";
 
 class WaveformProcessor extends AudioWorkletProcessor {
-  audioCallback?: ProcessorTypes.AudioFunc;
-  guiCallback?: ProcessorTypes.GuiFunc;
+  audioCallback?: PS88.AudioFunc;
+  guiCallback?: PS88.GuiFunc;
   save: Types.SaveData;
-  midi: ProcessorTypes.NoteEvent[] = [];
+  midi: PS88.NoteEvent[] = [];
 
   constructor(args: AudioWorkletNodeOptions) {
     super();
@@ -16,20 +16,20 @@ class WaveformProcessor extends AudioWorkletProcessor {
       this.port.postMessage(message);
     };
 
-    const api: ProcessorTypes.Api = {
-      audio: (callback: ProcessorTypes.AudioFunc) => {
+    const api: PS88.PS88 = {
+      audio: (callback: PS88.AudioFunc) => {
         if (typeof callback !== "function") {
           throw new TypeError("argument must be a function");
         }
         this.audioCallback = callback;
       },
-      gui: (callback: ProcessorTypes.GuiFunc) => {
+      gui: (callback: PS88.GuiFunc) => {
         if (typeof callback !== "function") {
           throw new TypeError("argument must be a function");
         }
         this.guiCallback = callback;
       },
-      save: (data: ProcessorTypes.SaveData) => {
+      save: (data: PS88.SaveData) => {
         if (data instanceof Uint8Array) {
           this.save = { type: "bytes", data };
         } else if (typeof data === "string") {
@@ -68,7 +68,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
       if (Types.isSendMessageDraw(event.data)) {
         if (this.guiCallback != undefined) {
           const shapes: Types.Shape[] = [];
-          const ctx: ProcessorTypes.GuiContext = {
+          const ctx: PS88.GuiContext = {
             w: event.data.w,
             h: event.data.h,
             mouse: event.data.mouse,
@@ -138,7 +138,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           }
         }
       }
-      const ctx: ProcessorTypes.AudioContext = {
+      const ctx: PS88.AudioContext = {
         audio: outputs[0] ?? [],
         midi: this.midi,
         sampleRate: sampleRate,
