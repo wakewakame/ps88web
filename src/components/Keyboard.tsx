@@ -1,22 +1,18 @@
 import { useState } from 'react';
 
 type KeyboardArgs = {
-  onMIDIMessage?: (event: MIDIMessageEvent) => void;
+  onMIDIMessage?: (data: Uint8Array) => void;
 };
 
 export const Keyboard = (args: KeyboardArgs) => {
   const [octave, setOctave] = useState(3);
   const [pressed, setPressed] = useState(false);
   const keyDown = (note: number) => {
-    args.onMIDIMessage?.(new MIDIMessageEvent("midimessage", {
-      data: new Uint8Array([0x90, note, 127]),
-    }));
+    args.onMIDIMessage?.(new Uint8Array([0x90, note, 127]));
     setPressed(true);
   }
   const keyUp = (note: number) => {
-    args.onMIDIMessage?.(new MIDIMessageEvent("midimessage", {
-      data: new Uint8Array([0x80, note, 127]),
-    }));
+    args.onMIDIMessage?.(new Uint8Array([0x80, note, 127]));
     setPressed(false);
   }
   return (

@@ -61,40 +61,43 @@ const AudioController = class {
    * @param midi - MIDIInput (null=MIDI無効化)
    */
   public static async setMIDI(midi: MIDIInput | null) {
+    const onMIDIMessage = (event: MIDIMessageEvent) => {
+      if (event.data != null) {
+        AudioController.onMIDIMessage(event.data);
+      }
+    };
     const context = await AudioController.getContexts();
     if (context.midi != null) {
-      context.midi.removeEventListener("midimessage", AudioController.onMIDIMessage);
+      context.midi.removeEventListener("midimessage", onMIDIMessage);
       await context.midi.close();
     }
     context.midi = midi;
-    context.midi?.addEventListener("midimessage", AudioController.onMIDIMessage);
+    context.midi?.addEventListener("midimessage", onMIDIMessage);
   }
 
   /**
    * MIDI メッセージの送信
    *
-   * @param event - MIDIMessageEvent
+   * @param data - MIDI メッセージのデータ
    */
-  public static onMIDIMessage(event: MIDIMessageEvent) {
-    if (event.data != null) {
-      const channel = event.data[0] & 0x0f;
-      const type = event.data[0] >> 4;
-      const note = event.data[1];
-      const velocity = event.data[2] / 127.0;
-      if (type === 0x9) {
-        AudioController.sendMessage({
-          type: "midi",
-          data: { type: "NoteOn", timing: 0, channel, note, velocity },
-        });
-        return;
-      }
-      if (type === 0x8) {
-        AudioController.sendMessage({
-          type: "midi",
-          data: { type: "NoteOff", timing: 0, channel, note, velocity },
-        });
-        return;
-      }
+  public static onMIDIMessage(data: Uint8Array) {
+    const channel = data[0] & 0x0f;
+    const type = data[0] >> 4;
+    const note = data[1];
+    const velocity = data[2] / 127.0;
+    if (type === 0x9) {
+      AudioController.sendMessage({
+        type: "midi",
+        data: { type: "NoteOn", timing: 0, channel, note, velocity },
+      });
+      return;
+    }
+    if (type === 0x8) {
+      AudioController.sendMessage({
+        type: "midi",
+        data: { type: "NoteOff", timing: 0, channel, note, velocity },
+      });
+      return;
     }
   }
 
