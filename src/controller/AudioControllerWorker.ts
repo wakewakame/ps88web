@@ -1,3 +1,4 @@
+/// <reference types="audioworklet" />
 import * as Types from "./AudioControllerTypes.ts";
 import * as ProcessorTypes from "./ProcessorTypes.ts";
 

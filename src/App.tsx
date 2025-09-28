@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { ButtonSelector, Option } from "./components/ButtonSelector";
+import { ButtonSelector, type Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
 import { Keyboard } from "./components/Keyboard";
 import AudioDevices from "./controller/AudioDevices";
