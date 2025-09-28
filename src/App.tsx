@@ -9,6 +9,8 @@ import AudioController from "./controller/AudioController";
 import defaultProcessorCode from "./controller/Processor?raw";
 
 const App = () => {
+  const [isOutputInit, setIsOutputInit] = useState<boolean>(false);
+
   const [displayToggle, setDisplayToggle] = useState<boolean>(false);
   const [inputToggle, setInputToggle] = useState<boolean>(false);
   const [outputToggle, setOutputToggle] = useState<boolean>(false);
@@ -91,10 +93,16 @@ const App = () => {
     await AudioController.setInput(stream);
     AudioController.build(code);
   };
+  const setOutputIfNotInit = () => {
+    if (!isOutputInit) {
+      setOutput(true, null);
+    }
+  };
   const setOutput = async (enable: boolean, id: string | null) => {
     await AudioController.setOutput(enable, id ?? undefined);
     setOutputToggle(enable);
     AudioController.build(code);
+    setIsOutputInit(true);
   };
   const setMIDI = async (enable: boolean, id: string | null) => {
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
@@ -158,7 +166,10 @@ const App = () => {
           onChange={(enable) => setEditorToggle(enable)}
         />
       </div>
-      <div className="w-full flex-auto box-border relative">
+      <div
+        className="w-full flex-auto box-border relative"
+        onPointerDown={setOutputIfNotInit}
+      >
         <Canvas width={640} height={480} onDraw={onDraw}></Canvas>
         <div
           className={`size-full ${editorToggle ? "" : "opacity-0 invisible"} transition-all duration-100 ease-in-out`}
@@ -172,7 +183,10 @@ const App = () => {
           />
         </div>
       </div>
-      <div className="w-full h-16 pt-1 box-border flex-none">
+      <div
+        className="w-full h-16 pt-1 box-border flex-none"
+        onPointerDown={setOutputIfNotInit}
+      >
         <Keyboard onMIDIMessage={AudioController.onMIDIMessage} />
       </div>
     </div>
