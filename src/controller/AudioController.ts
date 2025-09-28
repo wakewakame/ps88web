@@ -24,7 +24,9 @@ const AudioController = class {
       context.src = null;
     }
     if (stream != null) {
-      context.src = new MediaStreamAudioSourceNode(context.ctx, { mediaStream: stream });
+      context.src = new MediaStreamAudioSourceNode(context.ctx, {
+        mediaStream: stream,
+      });
       context.src.connect(context.proc);
     }
   }
@@ -47,7 +49,7 @@ const AudioController = class {
         const dst = context.dst as {
           // setSinkId は一部ブラウザでサポートされていないため typescript の型に含まれていない
           // よって、型定義を無視して呼び出す
-          setSinkId?: (deviceId: string) => Promise<undefined>,
+          setSinkId?: (deviceId: string) => Promise<undefined>;
         };
         await dst.setSinkId?.(deviceId);
       }
@@ -103,15 +105,19 @@ const AudioController = class {
 
   public static build(code: string) {
     AudioController.sendMessage({ type: "build", code: code });
-  };
+  }
 
-  public static draw(w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) {
+  public static draw(
+    w: number,
+    h: number,
+    mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
+  ) {
     AudioController.sendMessage({ type: "draw", w, h, mouse });
   }
 
   public static getShapes(): Types.Shape[] {
     return AudioController.context?.canvas ?? [];
-  };
+  }
 
   // context は AudioNode 関連のデータを保持する
   // NOTE: context のインスタンスはクリックイベント等を受け取ってから生成しないと音が出ないかもしれない
@@ -122,8 +128,10 @@ const AudioController = class {
 
       const processorOptions: Types.ProcessorOptions = { save: null };
       try {
-        processorOptions.save = JSON.parse(localStorage.getItem("processor") ?? "null");
-      } catch(e) {
+        processorOptions.save = JSON.parse(
+          localStorage.getItem("processor") ?? "null",
+        );
+      } catch (e) {
         console.error(e);
       }
 
@@ -142,7 +150,14 @@ const AudioController = class {
       proc.port.start();
 
       const dst = new Audio();
-      AudioController.context = { ctx, src: null, proc, dst, midi: null, canvas: [] };
+      AudioController.context = {
+        ctx,
+        src: null,
+        proc,
+        dst,
+        midi: null,
+        canvas: [],
+      };
     }
     return AudioController.context;
   }
@@ -167,7 +182,7 @@ const AudioController = class {
         } else {
           localStorage.setItem("processor", JSON.stringify(data));
         }
-      } catch(e) {
+      } catch (e) {
         console.error(e);
       }
       return;

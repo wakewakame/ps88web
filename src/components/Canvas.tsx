@@ -4,7 +4,11 @@ import * as Types from "../controller/AudioControllerTypes";
 type CanvasArgs = {
   width: number;
   height: number;
-  onDraw?: (w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) => Types.Shape[];
+  onDraw?: (
+    w: number,
+    h: number,
+    mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
+  ) => Types.Shape[];
 };
 
 export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
@@ -13,7 +17,7 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
     const canvasElem = canvas.current;
     if (canvasElem === null) return;
 
-    const mouse = { x: 0, y: 0, pressedL: false, pressedR: false }
+    const mouse = { x: 0, y: 0, pressedL: false, pressedR: false };
     const pointerUp = (e: PointerEvent) => {
       if (e.button === 0) mouse.pressedL = false;
       if (e.button === 2) mouse.pressedR = false;
@@ -23,8 +27,11 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
       if (e.button === 2) mouse.pressedR = true;
     };
     const pointerMove = (e: PointerEvent) => {
-      const xFit = canvasElem.clientWidth / canvasElem.clientHeight < width / height;
-      const scale = xFit ? width / canvasElem.clientWidth : height / canvasElem.clientHeight;
+      const xFit =
+        canvasElem.clientWidth / canvasElem.clientHeight < width / height;
+      const scale = xFit
+        ? width / canvasElem.clientWidth
+        : height / canvasElem.clientHeight;
       const xOffset = xFit ? 0 : (canvasElem.clientWidth - width / scale) / 2;
       const yOffset = xFit ? (canvasElem.clientHeight - height / scale) / 2 : 0;
       mouse.x = scale * (e.offsetX - xOffset);
@@ -91,7 +98,7 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
       width={`${width}`}
       height={`${height}`}
       className="size-full object-contain absolute"
-      style={{imageRendering: "pixelated"}}
+      style={{ imageRendering: "pixelated" }}
     ></canvas>
   );
 };

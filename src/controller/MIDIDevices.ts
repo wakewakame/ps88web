@@ -29,7 +29,7 @@ const MIDIDevices = class {
     if (id == undefined && devices.length > 0) {
       return devices[0];
     }
-    return devices.find((device) => (device.id === id)) ?? null;
+    return devices.find((device) => device.id === id) ?? null;
   }
 };
 

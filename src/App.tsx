@@ -21,7 +21,9 @@ const App = () => {
 
   const defaultCode = localStorage.getItem("code") ?? defaultProcessorCode;
   const [code, setCode] = useState<string>(defaultCode);
-  const [hotReloadTimeout, sethotReloadTimeout] = useState<number | undefined>();
+  const [hotReloadTimeout, sethotReloadTimeout] = useState<
+    number | undefined
+  >();
   const onCodeChange = (code?: string) => {
     if (hotReloadTimeout !== undefined) {
       clearTimeout(hotReloadTimeout);
@@ -29,46 +31,61 @@ const App = () => {
     if (code === undefined) {
       return;
     }
-    sethotReloadTimeout(setTimeout(() => {
-      AudioController.build(code);
-      setCode(code);
-      localStorage.setItem("code", code);
-    }, 1000));
+    sethotReloadTimeout(
+      setTimeout(() => {
+        AudioController.build(code);
+        setCode(code);
+        localStorage.setItem("code", code);
+      }, 1000),
+    );
   };
 
   const getInputs = () => {
     AudioDevices.getDevices("audioinput")
-      .then((devices) => devices?.map((device) => ({
-        id: device.deviceId,
-        name: device.label,
-      })) ?? null)
+      .then(
+        (devices) =>
+          devices?.map((device) => ({
+            id: device.deviceId,
+            name: device.label,
+          })) ?? null,
+      )
       .then(setInputs);
   };
   const getOutputs = () => {
     AudioDevices.getDevices("audiooutput")
-      .then((devices) => devices?.map((device) => ({
-        id: device.deviceId,
-        name: device.label,
-      })) ?? null)
+      .then(
+        (devices) =>
+          devices?.map((device) => ({
+            id: device.deviceId,
+            name: device.label,
+          })) ?? null,
+      )
       .then(setOutputs);
   };
   const getMIDIs = () => {
     MIDIDevices.getDevices()
-      .then((devices) => devices?.map((device) => ({
-        id: device.id.toString(),
-        name: device.name ?? "unknown",
-      })) ?? null)
+      .then(
+        (devices) =>
+          devices?.map((device) => ({
+            id: device.id.toString(),
+            name: device.name ?? "unknown",
+          })) ?? null,
+      )
       .then(setMIDIs);
   };
   const setDisplay = async (enable: boolean) => {
-    const stream = enable ? (await AudioDevices.getInputStreamFromDisplay()) : null;
+    const stream = enable
+      ? await AudioDevices.getInputStreamFromDisplay()
+      : null;
     setInputToggle(false);
     setDisplayToggle(stream != null);
     await AudioController.setInput(stream);
     AudioController.build(code);
   };
   const setInput = async (enable: boolean, id: string | null) => {
-    const stream = enable ? (await AudioDevices.getInputStream(id ?? undefined)) : null;
+    const stream = enable
+      ? await AudioDevices.getInputStream(id ?? undefined)
+      : null;
     setInputToggle(stream != null);
     setDisplayToggle(false);
     await AudioController.setInput(stream);
@@ -80,19 +97,29 @@ const App = () => {
     AudioController.build(code);
   };
   const setMIDI = async (enable: boolean, id: string | null) => {
-    const midi = enable ? (await MIDIDevices.getDevice(id ?? undefined)) : null;
+    const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
     setMIDIToggle(midi != null);
     await AudioController.setMIDI(midi);
     AudioController.build(code);
   };
 
-  const onDraw = (w: number, h: number, mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; }) => {
+  const onDraw = (
+    w: number,
+    h: number,
+    mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
+  ) => {
     AudioController.draw(w, h, mouse);
     return AudioController.getShapes();
   };
 
   const appRef = useRef<HTMLDivElement>(null);
-  appRef.current?.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
+  appRef.current?.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+    },
+    { passive: false },
+  );
 
   return (
     <div ref={appRef} className="flex flex-col h-dvh select-none">
@@ -100,35 +127,42 @@ const App = () => {
         <ButtonSelector
           icon="monitor"
           enable={displayToggle}
-          onChange={setDisplay} />
+          onChange={setDisplay}
+        />
         <ButtonSelector
           icon="mic"
           enable={inputToggle}
           options={inputs ?? []}
           disabled={inputs === null}
           onOpen={getInputs}
-          onChange={setInput} />
+          onChange={setInput}
+        />
         <ButtonSelector
           icon="volume_up"
           enable={outputToggle}
           options={outputs ?? []}
           onOpen={getOutputs}
-          onChange={setOutput} />
+          onChange={setOutput}
+        />
         <ButtonSelector
           icon="piano"
           enable={midiToggle}
           options={midis ?? []}
           disabled={midis === null}
           onOpen={getMIDIs}
-          onChange={setMIDI} />
+          onChange={setMIDI}
+        />
         <ButtonSelector
           icon="code"
           enable={editorToggle}
-          onChange={(enable) => setEditorToggle(enable)} />
+          onChange={(enable) => setEditorToggle(enable)}
+        />
       </div>
       <div className="w-full flex-auto box-border relative">
         <Canvas width={640} height={480} onDraw={onDraw}></Canvas>
-        <div className={`size-full ${editorToggle ? "" : "opacity-0 invisible"} transition-all duration-100 ease-in-out`}>
+        <div
+          className={`size-full ${editorToggle ? "" : "opacity-0 invisible"} transition-all duration-100 ease-in-out`}
+        >
           <Editor
             onChange={onCodeChange}
             className="size-full absolute opacity-70"
@@ -139,7 +173,7 @@ const App = () => {
         </div>
       </div>
       <div className="w-full h-16 pt-1 box-border flex-none">
-        <Keyboard onMIDIMessage={ AudioController.onMIDIMessage } />
+        <Keyboard onMIDIMessage={AudioController.onMIDIMessage} />
       </div>
     </div>
   );

@@ -34,17 +34,25 @@ export type GuiFunc = (ctx: GuiContext) => void;
 export type GuiContext = {
   w: number;
   h: number;
-  mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean; };
-  addPolygon: (path: [number, number][], options?: {
-    fill?: number;
-    stroke?: number;
-    strokeWidth?: number;
-    strokeClosed?: boolean;
-  }) => void;
-  addText: (text: string, x: number, y: number, options?: {
-    size?: number;
-    color?: number;
-  }) => void;
+  mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean };
+  addPolygon: (
+    path: [number, number][],
+    options?: {
+      fill?: number;
+      stroke?: number;
+      strokeWidth?: number;
+      strokeClosed?: boolean;
+    },
+  ) => void;
+  addText: (
+    text: string,
+    x: number,
+    y: number,
+    options?: {
+      size?: number;
+      color?: number;
+    },
+  ) => void;
 };
 
 export type SaveData = Uint8Array | string | null | undefined;
