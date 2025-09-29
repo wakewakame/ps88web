@@ -209,7 +209,6 @@ const App = () => {
                 ps88_d_ts,
                 "ps88.d.ts",
               );
-              monaco.languages;
             }}
             className="size-full absolute opacity-70"
             defaultLanguage="javascript"

@@ -5,6 +5,10 @@
 波形を JavaScript で記述するシンセサイザー。
 ブラウザと VST3 の両方で動作します。
 
+<p align="center">
+  <img src="./public/logo.svg" width="160">
+</p>
+
 - ブラウザで試す: https://wakewakame.github.io/ps88web
 - VST3 版: https://github.com/wakewakame/ps88
 

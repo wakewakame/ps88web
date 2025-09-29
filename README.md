@@ -5,6 +5,10 @@
 A synthesizer that lets you describe waveforms in JavaScript.
 It runs in both the browser and as a VST3 plugin.
 
+<p align="center">
+  <img src="./public/logo.svg" width="160">
+</p>
+
 - Try it in the browser: https://wakewakame.github.io/ps88web
 - VST3 version: https://github.com/wakewakame/ps88
 
