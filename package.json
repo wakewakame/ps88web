@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && typedoc ./src/ps88.d.ts --out ./public/docs && vite build",
     "lint": "eslint .",
-    "fmt": "prettier --write ./src",
+    "fmt": "prettier --write ./src ./public",
     "preview": "vite preview",
     "update": "ncu -u && npm install"
   },

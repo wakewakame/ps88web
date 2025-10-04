@@ -1,0 +1,6 @@
+- examples を拡充
+- Offscreen Canvas を使って AudioWorklet のスレッドから描画を行う、無理な場合は描画処理を別の Worker に移す
+    - その前にリファクタリングした方が良さそう
+    - 主に型定義の整理
+- IndexedDB で大きいデータも保存可能にする
+- 共有リンク生成機能を作る

@@ -22,26 +22,52 @@ const App = () => {
   const [outputs, setOutputs] = useState<Option[] | null>([]);
   const [midis, setMIDIs] = useState<Option[] | null>([]);
 
-  const defaultCode = localStorage.getItem("code") ?? defaultProcessorCode;
-  const [code, setCode] = useState<string>(defaultCode);
+  const codeURL = new URLSearchParams(window.location.search).get("src");
+  const [code, setCode] = useState<string>(
+    codeURL == undefined
+      ? (localStorage.getItem("code") ?? defaultProcessorCode)
+      : "// loading...",
+  );
   const [hotReloadTimeout, sethotReloadTimeout] = useState<
     number | undefined
   >();
   const onCodeChange = (code?: string) => {
-    if (hotReloadTimeout !== undefined) {
+    if (hotReloadTimeout != undefined) {
       clearTimeout(hotReloadTimeout);
     }
-    if (code === undefined) {
+    if (code == undefined) {
       return;
     }
+    setCode(code);
     sethotReloadTimeout(
       setTimeout(() => {
         AudioController.build(code);
-        setCode(code);
-        localStorage.setItem("code", code);
+        if (codeURL == undefined) {
+          localStorage.setItem("code", code);
+        }
       }, 1000),
     );
   };
+
+  const [loading, setLoading] = useState<boolean>(true);
+  if (codeURL != undefined && loading) {
+    fetch(codeURL)
+      .then(async (res) => {
+        setLoading(false);
+        if (!res.ok) {
+          setCode("// error: failed to load the code from URL");
+          return;
+        }
+        const text = await res.text();
+        setCode(text);
+        AudioController.build(text);
+      })
+      .catch((e) => {
+        setLoading(false);
+        setCode("// error: failed to load the code from URL");
+        console.error(e);
+      });
+  }
 
   const getInputs = () => {
     AudioDevices.getDevices("audioinput")
@@ -212,7 +238,7 @@ const App = () => {
             }}
             className="size-full absolute opacity-70"
             defaultLanguage="javascript"
-            defaultValue={defaultCode}
+            value={code}
             theme="vs-dark"
           />
         </div>
