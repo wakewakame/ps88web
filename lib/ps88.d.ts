@@ -1,3 +1,8 @@
+declare global {
+  const ps88: PS88;
+  const console: Console;
+}
+
 /**
  * PS88 API object.
  *
@@ -25,10 +30,6 @@
  * ```
  */
 export declare const ps88: PS88;
-
-declare global {
-  const ps88: PS88;
-}
 
 /**
  * PS88 API object.
@@ -227,3 +228,11 @@ export declare interface GuiContext {
 }
 
 export declare type SaveData = Uint8Array | string | null | undefined;
+
+export declare const console: Console;
+
+interface Console {
+  log(...data: unknown[]): void;
+  error(...data: unknown[]): void;
+  assert(condition?: boolean, ...data: unknown[]): void;
+}

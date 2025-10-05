@@ -1,4 +1,4 @@
-import type * as PS88 from "../ps88.d.ts";
+import type * as PS88 from "../../lib/ps88.d.ts";
 
 // worker のコンストラクタに渡すオプションの型
 export type ProcessorOptions = {

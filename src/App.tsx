@@ -7,7 +7,7 @@ import AudioDevices from "./controller/AudioDevices";
 import MIDIDevices from "./controller/MIDIDevices";
 import AudioController from "./controller/AudioController";
 import defaultProcessorCode from "./controller/Processor?raw";
-import ps88_d_ts from "./ps88.d.ts?raw";
+import ps88_d_ts from "../lib/ps88.d.ts?raw";
 
 const App = () => {
   const [isOutputInit, setIsOutputInit] = useState<boolean>(false);

@@ -1,6 +1,6 @@
 /// <reference types="audioworklet" />
 import * as Types from "./AudioControllerTypes.ts";
-import type * as PS88 from "../ps88.d.ts";
+import type * as PS88 from "../../lib/ps88.d.ts";
 
 class WaveformProcessor extends AudioWorkletProcessor {
   audioCallback?: PS88.AudioFunc;

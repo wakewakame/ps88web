@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "types": "lib/ps88.d.ts",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && typedoc ./src/ps88.d.ts --out ./public/docs && vite build",
+    "build": "tsc -b && typedoc ./lib/ps88.d.ts --out ./public/docs && vite build",
     "lint": "eslint .",
-    "fmt": "prettier --write ./src ./public",
+    "fmt": "prettier --write ./lib ./src ./public",
     "preview": "vite preview",
     "update": "ncu -u && npm install"
   },
