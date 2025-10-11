@@ -53,6 +53,7 @@ const AudioController = class {
         };
         await dst.setSinkId?.(deviceId);
       }
+      context.dst.autoplay = true;
       context.dst.play();
     }
   }

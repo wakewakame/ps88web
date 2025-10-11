@@ -9,14 +9,81 @@ import AudioController from "./controller/AudioController";
 import defaultProcessorCode from "./controller/Processor?raw";
 import ps88_d_ts from "../lib/ps88.d.ts?raw";
 
+const buttonState = (() => {
+  const State = class {
+    #state = {
+      input: false,
+      output: false,
+      midi: false,
+      editor: false,
+    };
+    constructor() {
+      this.load();
+    }
+    load() {
+      const saved = localStorage.getItem("buttonState");
+      if (saved) {
+        this.#state = JSON.parse(saved);
+      }
+      return this.#state;
+    }
+    save() {
+      localStorage.setItem("buttonState", JSON.stringify(this.#state));
+    }
+    get input() {
+      return this.#state.input;
+    }
+    set input(value: boolean) {
+      this.#state.input = value;
+      this.save();
+    }
+    get output() {
+      return this.#state.output;
+    }
+    set output(value: boolean) {
+      this.#state.output = value;
+      this.save();
+    }
+    get midi() {
+      return this.#state.midi;
+    }
+    set midi(value: boolean) {
+      this.#state.midi = value;
+      this.save();
+    }
+    get editor() {
+      return this.#state.editor;
+    }
+    set editor(value: boolean) {
+      this.#state.editor = value;
+      this.save();
+    }
+    async init(code: string) {
+      if (this.#state.input) {
+        const stream = await AudioDevices.getInputStream();
+        await AudioController.setInput(stream);
+      }
+      if (this.#state.output) {
+        await AudioController.setOutput(true);
+      }
+      if (this.#state.midi) {
+        const midi = await MIDIDevices.getDevice();
+        await AudioController.setMIDI(midi);
+      }
+      AudioController.build(code);
+    }
+  };
+  return new State();
+})();
+
 const App = () => {
   const [isOutputInit, setIsOutputInit] = useState<boolean>(false);
 
   const [displayToggle, setDisplayToggle] = useState<boolean>(false);
-  const [inputToggle, setInputToggle] = useState<boolean>(false);
-  const [outputToggle, setOutputToggle] = useState<boolean>(false);
-  const [midiToggle, setMIDIToggle] = useState<boolean>(false);
-  const [editorToggle, setEditorToggle] = useState<boolean>(false);
+  const [inputToggle, setInputToggle] = useState<boolean>(buttonState.input);
+  const [outputToggle, setOutputToggle] = useState<boolean>(buttonState.output);
+  const [midiToggle, setMIDIToggle] = useState<boolean>(buttonState.midi);
+  const [editorToggle, setEditorToggle] = useState<boolean>(buttonState.editor);
 
   const [inputs, setInputs] = useState<Option[] | null>([]);
   const [outputs, setOutputs] = useState<Option[] | null>([]);
@@ -28,6 +95,7 @@ const App = () => {
       ? (localStorage.getItem("code") ?? defaultProcessorCode)
       : "// loading...",
   );
+  buttonState.init(code).then(() => { setIsOutputInit(true); });
   const [hotReloadTimeout, sethotReloadTimeout] = useState<
     number | undefined
   >();
@@ -60,7 +128,7 @@ const App = () => {
         }
         const text = await res.text();
         setCode(text);
-        AudioController.build(text);
+        buttonState.init(text).then(() => { setIsOutputInit(true); });
       })
       .catch((e) => {
         setLoading(false);
@@ -107,6 +175,7 @@ const App = () => {
       ? await AudioDevices.getInputStreamFromDisplay()
       : null;
     setInputToggle(false);
+    buttonState.input = false;
     setDisplayToggle(stream != null);
     await AudioController.setInput(stream);
     AudioController.build(code);
@@ -116,6 +185,7 @@ const App = () => {
       ? await AudioDevices.getInputStream(id ?? undefined)
       : null;
     setInputToggle(stream != null);
+    buttonState.input = stream != null;
     setDisplayToggle(false);
     await AudioController.setInput(stream);
     AudioController.build(code);
@@ -128,12 +198,14 @@ const App = () => {
   const setOutput = async (enable: boolean, id: string | null) => {
     await AudioController.setOutput(enable, id ?? undefined);
     setOutputToggle(enable);
+    buttonState.output = enable;
     AudioController.build(code);
     setIsOutputInit(true);
   };
   const setMIDI = async (enable: boolean, id: string | null) => {
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
     setMIDIToggle(midi != null);
+    buttonState.midi = midi != null;
     await AudioController.setMIDI(midi);
     AudioController.build(code);
   };
@@ -216,7 +288,10 @@ const App = () => {
         <ButtonSelector
           icon="code"
           enable={editorToggle}
-          onChange={(enable) => setEditorToggle(enable)}
+          onChange={(enable) => {
+            setEditorToggle(enable);
+            buttonState.editor = enable;
+          }}
         />
       </div>
       <div
