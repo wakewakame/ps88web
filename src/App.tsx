@@ -22,12 +22,20 @@ const App = () => {
   const [outputs, setOutputs] = useState<Option[] | null>([]);
   const [midis, setMIDIs] = useState<Option[] | null>([]);
 
-  const [selectedInputId, setSelectedInputId] = useState<string | null>(
-    localStorage.getItem("selectedInputId"),
-  );
-  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(
-    localStorage.getItem("selectedOutputId"),
-  );
+  const [selectedInputId, setSelectedInputId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("selectedInputId");
+    } catch {
+      return null;
+    }
+  });
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("selectedOutputId");
+    } catch {
+      return null;
+    }
+  });
 
   const codeURL = new URLSearchParams(window.location.search).get("src");
   const [code, setCode] = useState<string>(
@@ -134,16 +142,23 @@ const App = () => {
       localStorage.setItem("selectedInputId", id);
     } else if (stream == null) {
       // Clear saved ID when disabling
+      setSelectedInputId(null);
       localStorage.removeItem("selectedInputId");
     }
   };
   const setOutputIfNotInit = () => {
     if (!isOutputInit) {
-      // Check if there's a saved state that should be restored
-      const savedOutputToggle = localStorage.getItem("outputToggle");
-      const savedOutputId = localStorage.getItem("selectedOutputId");
-      const shouldEnable = savedOutputToggle === "true";
-      setOutput(shouldEnable, savedOutputId);
+      try {
+        // Check if there's a saved state that should be restored
+        const savedOutputToggle = localStorage.getItem("outputToggle");
+        const savedOutputId = localStorage.getItem("selectedOutputId");
+        const shouldEnable = savedOutputToggle === "true";
+        setOutput(shouldEnable, savedOutputId);
+      } catch (error) {
+        console.error("Failed to restore output state from localStorage:", error);
+        // Fall back to enabling output by default
+        setOutput(true, null);
+      }
     }
   };
   const setOutput = async (enable: boolean, id: string | null) => {
@@ -160,6 +175,7 @@ const App = () => {
         localStorage.setItem("selectedOutputId", id);
       } else if (!enable) {
         // Clear saved ID when disabling
+        setSelectedOutputId(null);
         localStorage.removeItem("selectedOutputId");
       }
       return true;
@@ -181,11 +197,15 @@ const App = () => {
   // The microphone can be restored on mount since it doesn't require autoplay permission.
   useEffect(() => {
     const restoreDevices = async () => {
-      // Restore microphone state
-      const savedInputToggle = localStorage.getItem("inputToggle");
-      if (savedInputToggle === "true") {
-        const savedInputId = localStorage.getItem("selectedInputId");
-        await setInput(true, savedInputId);
+      try {
+        // Restore microphone state
+        const savedInputToggle = localStorage.getItem("inputToggle");
+        if (savedInputToggle === "true") {
+          const savedInputId = localStorage.getItem("selectedInputId");
+          await setInput(true, savedInputId);
+        }
+      } catch (error) {
+        console.error("Failed to restore device state from localStorage:", error);
       }
 
       // Note: We don't restore speaker state here due to autoplay restrictions.
