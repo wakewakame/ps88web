@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { ButtonSelector, type Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
@@ -21,6 +21,13 @@ const App = () => {
   const [inputs, setInputs] = useState<Option[] | null>([]);
   const [outputs, setOutputs] = useState<Option[] | null>([]);
   const [midis, setMIDIs] = useState<Option[] | null>([]);
+
+  const [selectedInputId, setSelectedInputId] = useState<string | null>(
+    localStorage.getItem("selectedInputId"),
+  );
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(
+    localStorage.getItem("selectedOutputId"),
+  );
 
   const codeURL = new URLSearchParams(window.location.search).get("src");
   const [code, setCode] = useState<string>(
@@ -119,17 +126,47 @@ const App = () => {
     setDisplayToggle(false);
     await AudioController.setInput(stream);
     AudioController.build(code);
+    
+    // Persist state to localStorage
+    localStorage.setItem("inputToggle", String(stream != null));
+    if (stream != null && id != null) {
+      setSelectedInputId(id);
+      localStorage.setItem("selectedInputId", id);
+    } else if (stream == null) {
+      // Clear saved ID when disabling
+      localStorage.removeItem("selectedInputId");
+    }
   };
   const setOutputIfNotInit = () => {
     if (!isOutputInit) {
-      setOutput(true, null);
+      // Check if there's a saved state that should be restored
+      const savedOutputToggle = localStorage.getItem("outputToggle");
+      const savedOutputId = localStorage.getItem("selectedOutputId");
+      const shouldEnable = savedOutputToggle === "true";
+      setOutput(shouldEnable, savedOutputId);
     }
   };
   const setOutput = async (enable: boolean, id: string | null) => {
-    await AudioController.setOutput(enable, id ?? undefined);
-    setOutputToggle(enable);
-    AudioController.build(code);
-    setIsOutputInit(true);
+    try {
+      await AudioController.setOutput(enable, id ?? undefined);
+      setOutputToggle(enable);
+      AudioController.build(code);
+      setIsOutputInit(true);
+      
+      // Persist state to localStorage
+      localStorage.setItem("outputToggle", String(enable));
+      if (id != null) {
+        setSelectedOutputId(id);
+        localStorage.setItem("selectedOutputId", id);
+      } else if (!enable) {
+        // Clear saved ID when disabling
+        localStorage.removeItem("selectedOutputId");
+      }
+      return true;
+    } catch (error) {
+      console.error("Error in setOutput:", error);
+      return false;
+    }
   };
   const setMIDI = async (enable: boolean, id: string | null) => {
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
@@ -137,6 +174,27 @@ const App = () => {
     await AudioController.setMIDI(midi);
     AudioController.build(code);
   };
+
+  // Note: We cannot automatically restore audio devices on page load due to browser
+  // autoplay restrictions. Instead, we restore them on the first user interaction
+  // via setOutputIfNotInit (triggered by clicking on the canvas or keyboard).
+  // The microphone can be restored on mount since it doesn't require autoplay permission.
+  useEffect(() => {
+    const restoreDevices = async () => {
+      // Restore microphone state
+      const savedInputToggle = localStorage.getItem("inputToggle");
+      if (savedInputToggle === "true") {
+        const savedInputId = localStorage.getItem("selectedInputId");
+        await setInput(true, savedInputId);
+      }
+
+      // Note: We don't restore speaker state here due to autoplay restrictions.
+      // It will be restored on first user interaction via setOutputIfNotInit.
+    };
+
+    restoreDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array means this runs only once on mount
 
   const onDraw = (
     w: number,
@@ -194,6 +252,7 @@ const App = () => {
           icon="mic"
           enable={inputToggle}
           options={inputs ?? []}
+          selected={selectedInputId ?? undefined}
           disabled={inputs === null}
           onOpen={getInputs}
           onChange={setInput}
@@ -202,6 +261,7 @@ const App = () => {
           icon="volume_up"
           enable={outputToggle}
           options={outputs ?? []}
+          selected={selectedOutputId ?? undefined}
           onOpen={getOutputs}
           onChange={setOutput}
         />
