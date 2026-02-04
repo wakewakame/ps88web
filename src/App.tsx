@@ -180,6 +180,14 @@ const App = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="text-sky-600 mx-1"
+            href="./license.md"
+          >
+            License
+          </a>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 mx-1"
             href="https://github.com/wakewakame/ps88web"
           >
             GitHub

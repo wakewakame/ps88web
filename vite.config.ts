@@ -9,4 +9,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   base: './',
+  build: {
+    license: { fileName: 'license.md' },
+  },
 })
