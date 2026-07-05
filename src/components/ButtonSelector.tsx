@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export type Option = { id: string; name: string };
 
@@ -32,8 +32,30 @@ export const ButtonSelector = (args: ButtonSelectorArgs) => {
     setSelectedId(id);
   };
 
+  // タッチデバイスでは mouseleave が発火しないため、外側のタップでも閉じる
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      if (!(e.target instanceof Node)) {
+        return;
+      }
+      if (rootRef.current != null && !rootRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
   return (
-    <div onMouseLeave={() => setOpen(false)} className="flex flex-col h-full">
+    <div
+      ref={rootRef}
+      onMouseLeave={() => setOpen(false)}
+      className="flex flex-col h-full"
+    >
       <div
         className="
           flex flex-row h-full rounded-full bg-zinc-700/50
