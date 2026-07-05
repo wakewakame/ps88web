@@ -5,6 +5,6 @@ body {
   background-color: var(--color-zinc-900);
 }
 
-* {
-  font: "Roboto Mono";
+body {
+  font-family: "Roboto Mono", monospace;
 }
