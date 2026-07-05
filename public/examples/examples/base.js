@@ -26,7 +26,8 @@ ps88.audio((ctx) => {
     }
 
     // 波形の生成
-    for (let i = 0; i < ctx.audio[0]?.length ?? 0; i++) {
+    const length = ctx.audio.length > 0 ? ctx.audio[0].length : 0;
+    for (let i = 0; i < length; i++) {
       // 現在の音高と音量を目標に近づける
       note.current.note += (note.target.note - note.current.note) * 0.001;
       note.current.velo += (note.target.velo - note.current.velo) * 0.01;
