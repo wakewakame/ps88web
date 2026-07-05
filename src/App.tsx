@@ -210,6 +210,7 @@ const App = () => {
           icon="volume_up"
           enable={outputToggle}
           options={outputs ?? []}
+          disabled={outputs === null}
           onOpen={getOutputs}
           onChange={setOutput}
         />
