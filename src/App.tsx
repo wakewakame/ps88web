@@ -28,25 +28,21 @@ const App = () => {
       ? (localStorage.getItem("code") ?? defaultProcessorCode)
       : "// loading...",
   );
-  const [hotReloadTimeout, sethotReloadTimeout] = useState<
-    number | undefined
-  >();
+  const hotReloadTimeout = useRef<number | undefined>(undefined);
   const onCodeChange = (code?: string) => {
-    if (hotReloadTimeout != undefined) {
-      clearTimeout(hotReloadTimeout);
+    if (hotReloadTimeout.current != undefined) {
+      clearTimeout(hotReloadTimeout.current);
     }
     if (code == undefined) {
       return;
     }
     setCode(code);
-    sethotReloadTimeout(
-      setTimeout(() => {
-        AudioController.build(code);
-        if (codeURL == undefined) {
-          localStorage.setItem("code", code);
-        }
-      }, 1000),
-    );
+    hotReloadTimeout.current = setTimeout(() => {
+      AudioController.build(code);
+      if (codeURL == undefined) {
+        localStorage.setItem("code", code);
+      }
+    }, 1000);
   };
 
   const [loading, setLoading] = useState<boolean>(true);
