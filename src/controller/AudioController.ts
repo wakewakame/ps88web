@@ -63,19 +63,25 @@ const AudioController = class {
    * @param midi - MIDIInput (null=MIDI無効化)
    */
   public static async setMIDI(midi: MIDIInput | null) {
-    const onMIDIMessage = (event: MIDIMessageEvent) => {
-      if (event.data != null) {
-        AudioController.onMIDIMessage(event.data);
-      }
-    };
     const context = await AudioController.getContexts();
     if (context.midi != null) {
-      context.midi.removeEventListener("midimessage", onMIDIMessage);
+      context.midi.removeEventListener(
+        "midimessage",
+        AudioController.onMIDIEvent,
+      );
       await context.midi.close();
     }
     context.midi = midi;
-    context.midi?.addEventListener("midimessage", onMIDIMessage);
+    context.midi?.addEventListener("midimessage", AudioController.onMIDIEvent);
   }
+
+  // setMIDI のたびに新しいクロージャを作ると removeEventListener で解除できないため、
+  // リスナーは単一の参照を使い回す
+  private static onMIDIEvent = (event: MIDIMessageEvent) => {
+    if (event.data != null) {
+      AudioController.onMIDIMessage(event.data);
+    }
+  };
 
   /**
    * MIDI メッセージの送信
