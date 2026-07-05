@@ -134,7 +134,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
             Math.min(inputs[input][ch].length, outputs[input][ch].length);
             sample++
           ) {
-            outputs[input][ch][sample] = inputs[0][ch][sample];
+            outputs[input][ch][sample] = inputs[input][ch][sample];
           }
         }
       }
