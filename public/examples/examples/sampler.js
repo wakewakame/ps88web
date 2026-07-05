@@ -62,8 +62,8 @@ const vec2 = {
    * @description ベクトル長が 1 になるよう正規化
    */
   unit: (a) => {
-    const len = len(a);
-    return len > 1e-6 ? div(a, len) : [1, 0];
+    const len = vec2.len(a);
+    return len > 1e-6 ? vec2.div(a, len) : [1, 0];
   },
 
   /**
@@ -86,7 +86,7 @@ const vec2 = {
     ][Math.floor(r) - Math.floor(r / 4) * 4];
   },
 
-  get_rot: (a) => Math.atan2(a.y, a.x),
+  get_rot: (a) => Math.atan2(a[1], a[0]),
 
   /**
    * @description 直線と直線の交点を取得
@@ -96,7 +96,7 @@ const vec2 = {
     // <=>      s*av - t*bv = bp - ap
     // <=> [av bv] [s -t]^T = bp - ap
     // <=>         [s -t]^T = [av bv]^-1 (bp - ap)
-    const bpap = sub(bp, ap);
+    const bpap = vec2.sub(bp, ap);
     const det = av[0] * bv[1] - av[1] * bv[0];
     const s = (bv[1] * bpap[0] - bv[0] * bpap[1]) / det;
     return s;
