@@ -123,44 +123,56 @@ const AudioController = class {
   // context は AudioNode 関連のデータを保持する
   // NOTE: context のインスタンスはクリックイベント等を受け取ってから生成しないと音が出ないかもしれない
   private static context?: AudioControllerContext;
-  private static async getContexts(): Promise<AudioControllerContext> {
-    if (AudioController.context == undefined) {
-      const ctx = new AudioContext({ latencyHint: 0 });
-
-      const processorOptions: Types.ProcessorOptions = { save: null };
-      try {
-        processorOptions.save = JSON.parse(
-          localStorage.getItem("processor") ?? "null",
-        );
-      } catch (e) {
-        console.error(e);
-      }
-
-      // worker の読み込み
-      await ctx.audioWorklet.addModule(workerUrl);
-      const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [2],
-        processorOptions: processorOptions,
-        channelCount: 2,
-        channelCountMode: "explicit",
-        channelInterpretation: "speakers",
-      });
-      proc.port.addEventListener("message", AudioController.onRecvMessage);
-      proc.port.start();
-
-      const dst = new Audio();
-      AudioController.context = {
-        ctx,
-        src: null,
-        proc,
-        dst,
-        midi: null,
-        canvas: [],
-      };
+  // 初期化中に getContexts が並行して呼ばれても AudioContext が
+  // 二重生成されないよう、Promise 自体をキャッシュする
+  private static contextPromise?: Promise<AudioControllerContext>;
+  private static getContexts(): Promise<AudioControllerContext> {
+    if (AudioController.contextPromise == undefined) {
+      AudioController.contextPromise = AudioController.createContext().then(
+        (context) => {
+          AudioController.context = context;
+          return context;
+        },
+      );
     }
-    return AudioController.context;
+    return AudioController.contextPromise;
+  }
+
+  private static async createContext(): Promise<AudioControllerContext> {
+    const ctx = new AudioContext({ latencyHint: 0 });
+
+    const processorOptions: Types.ProcessorOptions = { save: null };
+    try {
+      processorOptions.save = JSON.parse(
+        localStorage.getItem("processor") ?? "null",
+      );
+    } catch (e) {
+      console.error(e);
+    }
+
+    // worker の読み込み
+    await ctx.audioWorklet.addModule(workerUrl);
+    const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      processorOptions: processorOptions,
+      channelCount: 2,
+      channelCountMode: "explicit",
+      channelInterpretation: "speakers",
+    });
+    proc.port.addEventListener("message", AudioController.onRecvMessage);
+    proc.port.start();
+
+    const dst = new Audio();
+    return {
+      ctx,
+      src: null,
+      proc,
+      dst,
+      midi: null,
+      canvas: [],
+    };
   }
 
   private static sendMessage(event: Types.SendMessage) {
