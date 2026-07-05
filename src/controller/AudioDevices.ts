@@ -70,9 +70,8 @@ const AudioDevices = class {
   }
 
   private static async getPermission(): Promise<boolean> {
-    // TODO: typescript v5.8.0 で "microphone" が PermissionName に含まれるようになるので as PermissionName は不要になる
     const state = await navigator.permissions.query({
-      name: "microphone" as PermissionName,
+      name: "microphone",
     });
     if (state.state === "denied") {
       return false;
