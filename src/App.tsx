@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { ButtonSelector, type Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
@@ -49,11 +49,13 @@ const App = () => {
     );
   };
 
-  const [loading, setLoading] = useState<boolean>(true);
-  if (codeURL != undefined && loading) {
-    fetch(codeURL)
+  useEffect(() => {
+    if (codeURL == undefined) {
+      return;
+    }
+    const abort = new AbortController();
+    fetch(codeURL, { signal: abort.signal })
       .then(async (res) => {
-        setLoading(false);
         if (!res.ok) {
           setCode("// error: failed to load the code from URL");
           return;
@@ -63,11 +65,14 @@ const App = () => {
         AudioController.build(text);
       })
       .catch((e) => {
-        setLoading(false);
+        if (abort.signal.aborted) {
+          return;
+        }
         setCode("// error: failed to load the code from URL");
         console.error(e);
       });
-  }
+    return () => abort.abort();
+  }, [codeURL]);
 
   const getInputs = () => {
     AudioDevices.getDevices("audioinput")
