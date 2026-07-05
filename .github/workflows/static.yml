@@ -33,10 +33,16 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 'latest'
+          # LTS に固定して Node の破壊的変更でビルドが突然壊れるのを防ぐ
+          node-version: '24'
           cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        # lockfile 通りの再現ビルドにする
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Check formatting
+        run: npx prettier --check ./lib ./src ./public
       - name: Build
         run: npm run build
       - name: Setup Pages
