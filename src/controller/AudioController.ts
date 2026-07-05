@@ -88,9 +88,10 @@ const AudioController = class {
     const note = data[1];
     const velocity = data[2] / 127.0;
     if (type === 0x9) {
+      const type = velocity === 0 ? "NoteOff" : "NoteOn";
       AudioController.sendMessage({
         type: "midi",
-        data: { type: "NoteOn", timing: 0, channel, note, velocity },
+        data: { type, timing: 0, channel, note, velocity },
       });
       return;
     }
