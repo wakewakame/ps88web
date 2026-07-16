@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { ButtonSelector, type Option } from "./components/ButtonSelector";
 import { Canvas } from "./components/Canvas";
@@ -134,14 +134,19 @@ const App = () => {
     AudioController.build(code);
   };
 
-  const onDraw = (
-    w: number,
-    h: number,
-    mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
-  ) => {
-    AudioController.draw(w, h, mouse);
-    return AudioController.getShapes();
-  };
+  // 参照が毎 render 変わると Canvas 側の useEffect が再実行され、
+  // 描画ループの再生成やマウス状態のリセットが起きるため useCallback で固定する
+  const onDraw = useCallback(
+    (
+      w: number,
+      h: number,
+      mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
+    ) => {
+      AudioController.draw(w, h, mouse);
+      return AudioController.getShapes();
+    },
+    [],
+  );
 
   const appRef = useRef<HTMLDivElement>(null);
   appRef.current?.addEventListener(
