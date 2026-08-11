@@ -104,8 +104,8 @@ export const useAudioDevices = (): AudioDeviceControls => {
   const outputInitialized = useRef(false);
   const setOutput = useCallback(async (enable: boolean, id: string | null) => {
     outputInitialized.current = true;
-    await AudioController.setOutput(enable, id ?? undefined);
-    setOutputEnable(enable);
+    // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
+    setOutputEnable(await AudioController.setOutput(enable, id ?? undefined));
   }, []);
   const initOutput = useCallback(() => {
     if (outputInitialized.current) {

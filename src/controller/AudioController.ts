@@ -157,22 +157,34 @@ export const setInput = async (stream: MediaStream | null) => {
  *
  * @param enable - true=出力有効化, false=出力無効化
  * @param deviceId - スピーカーのデバイスID (省略時はデフォルトのスピーカーを使用する)
+ * @returns 実際に出力が有効になったか
  */
-export const setOutput = async (enable: boolean, deviceId?: string) => {
+export const setOutput = async (
+  enable: boolean,
+  deviceId?: string,
+): Promise<boolean> => {
   const { ctx, proc, audio } = await ensureGraph();
   proc.disconnect();
   audio.pause();
   if (!enable) {
-    return;
+    return false;
   }
   const dst = new MediaStreamAudioDestinationNode(ctx);
   proc.connect(dst);
   audio.srcObject = dst.stream;
-  if (deviceId != undefined) {
-    // setSinkId は一部のブラウザで未実装のため、存在する場合のみ呼び出す
-    await audio.setSinkId?.(deviceId);
+  try {
+    if (deviceId != undefined) {
+      // setSinkId は一部のブラウザで未実装のため、存在する場合のみ呼び出す
+      await audio.setSinkId?.(deviceId);
+    }
+    // 自動再生ポリシーやデバイスの指定失敗で reject し得る。
+    // 握り潰すと音が出ないまま UI が有効表示になるため、結果を返す
+    await audio.play();
+  } catch (e) {
+    console.error(e);
+    return false;
   }
-  audio.play();
+  return true;
 };
 
 /**
