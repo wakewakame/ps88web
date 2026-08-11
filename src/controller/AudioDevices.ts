@@ -1,27 +1,30 @@
 const getPermission = async (): Promise<boolean> => {
-  const state = await navigator.permissions.query({ name: "microphone" });
-  if (state.state === "denied") {
+  let state: PermissionState | undefined;
+  try {
+    state = (await navigator.permissions.query({ name: "microphone" })).state;
+  } catch (e) {
+    // name: "microphone" に対応していないブラウザでは reject する。
+    // 状態が分からないだけなので、下の getUserMedia を試して判断する
+    console.warn(e);
+  }
+  if (state === "denied") {
     return false;
   }
-  if (state.state === "granted") {
+  if (state === "granted") {
     return true;
   }
-  if (state.state === "prompt") {
-    // アクセス権限を得るために、一旦ダミーでマイクを取得する
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: false,
-      });
-      stream.getTracks().forEach((track) => track.stop());
-      return true;
-    } catch (e) {
-      console.warn(e);
-      return false;
-    }
+  // "prompt" もしくは状態不明。アクセス権限を得るために、一旦ダミーでマイクを取得する
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+    stream.getTracks().forEach((track) => track.stop());
+    return true;
+  } catch (e) {
+    console.warn(e);
+    return false;
   }
-  console.assert(false, "unknown state");
-  return false;
 };
 
 /**

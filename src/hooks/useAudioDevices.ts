@@ -61,7 +61,13 @@ const useDeviceOptions = <T>(
 ) => {
   const [options, setOptions] = useState<Option[] | null>([]);
   const onOpen = useCallback(() => {
-    list().then((devices) => setOptions(devices?.map(toOption) ?? null));
+    list()
+      .then((devices) => setOptions(devices?.map(toOption) ?? null))
+      // 失敗を握り潰すと一覧が空のまま無反応に見えるため、disabled にして示す
+      .catch((e) => {
+        console.error(e);
+        setOptions(null);
+      });
   }, [list, toOption]);
   return { options: options ?? [], disabled: options == null, onOpen };
 };
