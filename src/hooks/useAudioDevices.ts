@@ -1,23 +1,26 @@
 import { useCallback, useRef, useState } from "react";
-import type { Option } from "../components/ButtonSelector";
+import type { ButtonSelectorArgs, Option } from "../components/ButtonSelector";
 import AudioController from "../controller/AudioController";
 import AudioDevices from "../controller/AudioDevices";
 import MIDIDevices from "../controller/MIDIDevices";
 
+// JSX の spread では余剰プロパティチェックが働かないため、ButtonSelectorArgs と
+// 同じ形の型を別に定義するとフィールド名がずれても型エラーにならない。
+// (ButtonSelectorArgs 側がほぼ optional なので、必須漏れとしても検出されない)
+// そのため以下の型は ButtonSelectorArgs から導出し、定義をひとつに保つ。
+
 /** ButtonSelector に渡す、オン/オフのみを持つデバイスの props */
-export type DeviceToggle = {
-  enable: boolean;
+export type DeviceToggle = Required<Pick<ButtonSelectorArgs, "enable">> & {
   onChange: (enable: boolean) => void;
 };
 
 /** ButtonSelector に渡す、デバイス一覧を選択できるデバイスの props */
-export type DeviceSelector = {
-  enable: boolean;
-  options: Option[];
-  disabled: boolean;
-  onOpen: () => void;
-  onChange: (enable: boolean, id: string | null) => void;
-};
+export type DeviceSelector = Required<
+  Pick<
+    ButtonSelectorArgs,
+    "enable" | "options" | "disabled" | "onOpen" | "onChange"
+  >
+>;
 
 export type AudioDeviceControls = {
   display: DeviceToggle;

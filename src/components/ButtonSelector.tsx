@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 
 export type Option = { id: string; name: string };
 
-type ButtonSelectorArgs = {
+export type ButtonSelectorArgs = {
   icon: string;
   enable: boolean;
   options?: Option[];
