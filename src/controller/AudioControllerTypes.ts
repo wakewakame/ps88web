@@ -44,7 +44,9 @@ export type SendMessageMIDI = {
 export type RecvMessage = RecvMessageDraw | RecvMessageSave;
 export type RecvMessageDraw = {
   type: "draw";
-  shapes: Shape[];
+  // null は「描画しなかった」ことを表し、この場合は前回の内容を保持する。
+  // main 側は返信を待って次の draw を送るため、描画しない場合も返信は必要
+  shapes: Shape[] | null;
 };
 export type RecvMessageSave = {
   type: "save";

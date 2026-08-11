@@ -61,6 +61,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
         }
         case "draw": {
           if (this.guiCallback == undefined) {
+            recvMessage({ type: "draw", shapes: null });
             return;
           }
           const shapes: Types.Shape[] = [];

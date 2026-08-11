@@ -29,6 +29,12 @@ let lastCode = "";
 // worker から届いた最新の描画内容
 let shapes: Types.Shape[] = [];
 
+// 返信待ちの draw があるか
+// postMessage のキューには上限が無いため、返信を待たずに送り続けると
+// worklet の処理が追いつかない場合に遅延とメモリが際限なく増える。
+// 送信を高々 1 件に制限し、追いつかない時は fps が落ちるだけにする
+let drawPending = false;
+
 // --- 永続化 ---------------------------------------------------------------
 
 // worker 側の ps88.save() / ps88.load() が読み書きするデータの保存先
@@ -65,7 +71,10 @@ const onRecvMessage = (event: MessageEvent) => {
   const message: Types.RecvMessage = event.data;
   switch (message.type) {
     case "draw": {
-      shapes = message.shapes;
+      drawPending = false;
+      if (message.shapes != null) {
+        shapes = message.shapes;
+      }
       return;
     }
     case "save": {
@@ -226,8 +235,14 @@ export const build = (code: string) => {
  * 描画の要求
  *
  * 結果は worker から非同期に届くため、直後の getShapes では反映されない。
+ * 前回の要求への返信を受け取るまでは、呼び出しても何もしない。
  */
 export const draw = (w: number, h: number, mouse: Types.Mouse) => {
+  // graph が未生成のうちは送信しても返信が来ないため、pending にしない
+  if (graph == undefined || drawPending) {
+    return;
+  }
+  drawPending = true;
   sendMessage({ type: "draw", w, h, mouse });
 };
 
