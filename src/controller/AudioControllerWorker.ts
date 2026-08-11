@@ -94,7 +94,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           try {
             this.guiCallback(ctx);
           } catch (e) {
-            this.audioCallback = undefined;
+            // gui の失敗で audio まで止めない
             this.guiCallback = undefined;
             console.error(e);
           }
@@ -146,12 +146,13 @@ class WaveformProcessor extends AudioWorkletProcessor {
       try {
         this.audioCallback(ctx);
       } catch (e) {
+        // audio の失敗で gui まで止めない
         this.audioCallback = undefined;
-        this.guiCallback = undefined;
         console.error(e);
       }
-      this.midi = [];
     }
+    // audioCallback が無い場合は消費者がいないため、溜めずに捨てる
+    this.midi = [];
     return true;
   }
 }
