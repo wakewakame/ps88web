@@ -1,13 +1,16 @@
 import Editor from "@monaco-editor/react";
+import { useProcessorCode } from "../hooks/useProcessorCode";
 import ps88_d_ts from "../../lib/ps88.d.ts?raw";
 
 type CodeEditorArgs = {
-  code: string;
   visible: boolean;
-  onChange: (code?: string) => void;
 };
 
-export const CodeEditor = ({ code, visible, onChange }: CodeEditorArgs) => {
+export const CodeEditor = ({ visible }: CodeEditorArgs) => {
+  // コードの state をここに閉じ込めることで、1文字入力するたびに
+  // App (と Toolbar / Canvas / Keyboard) が再 render されるのを防ぐ
+  const { code, onCodeChange } = useProcessorCode();
+
   return (
     // 非表示のときもアンマウントせず、透明度だけを変えて編集状態を保つ
     <div
@@ -18,7 +21,7 @@ export const CodeEditor = ({ code, visible, onChange }: CodeEditorArgs) => {
         defaultLanguage="javascript"
         theme="vs-dark"
         value={code}
-        onChange={onChange}
+        onChange={onCodeChange}
         onMount={(_, monaco) => {
           // 補完用の型定義を追加
           monaco.languages.typescript.javascriptDefaults.addExtraLib(

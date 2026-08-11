@@ -6,7 +6,6 @@ import { Toolbar } from "./components/Toolbar";
 import AudioController from "./controller/AudioController";
 import { useAudioDevices } from "./hooks/useAudioDevices";
 import { usePreventTouchScroll } from "./hooks/usePreventTouchScroll";
-import { useProcessorCode } from "./hooks/useProcessorCode";
 
 // Canvas は onDraw の参照が変わると描画ループを作り直すため、
 // コンポーネントの外に置いて参照を固定する
@@ -20,7 +19,6 @@ const onDraw = (
 };
 
 const App = () => {
-  const { code, onCodeChange } = useProcessorCode();
   const devices = useAudioDevices();
   const [editorVisible, setEditorVisible] = useState(false);
   const appRef = usePreventTouchScroll<HTMLDivElement>();
@@ -37,11 +35,7 @@ const App = () => {
         onPointerDown={devices.initOutput}
       >
         <Canvas width={640} height={480} onDraw={onDraw} />
-        <CodeEditor
-          code={code}
-          visible={editorVisible}
-          onChange={onCodeChange}
-        />
+        <CodeEditor visible={editorVisible} />
       </div>
       <div
         className="w-full h-16 pt-1 box-border flex-none"
