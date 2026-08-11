@@ -149,13 +149,17 @@ const App = () => {
   };
 
   const appRef = useRef<HTMLDivElement>(null);
-  appRef.current?.addEventListener(
-    "touchmove",
-    (e) => {
+  useEffect(() => {
+    const app = appRef.current;
+    if (app == null) {
+      return;
+    }
+    const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-    },
-    { passive: false },
-  );
+    };
+    app.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => app.removeEventListener("touchmove", onTouchMove);
+  }, []);
 
   return (
     <div ref={appRef} className="flex flex-col h-dvh select-none">
