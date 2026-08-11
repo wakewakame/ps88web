@@ -1,232 +1,235 @@
 import * as Types from "./AudioControllerTypes.ts";
 import workerUrl from "./AudioControllerWorker.ts?worker&url";
 
-type AudioControllerContext = {
+// 生成後に差し替わらない AudioNode 関連のインスタンス
+type AudioGraph = {
   ctx: AudioContext;
-  src: MediaStreamAudioSourceNode | null;
   proc: AudioWorkletNode;
-  dst: HTMLAudioElement;
-  midi: MIDIInput | null;
-  canvas: Types.Shape[];
+  // 出力先。AudioContext の出力を MediaStream 経由で流し込むことで、
+  // setSinkId によるスピーカーの切り替えを可能にしている
+  audio: HTMLAudioElement;
 };
 
-const AudioController = class {
-  /**
-   * 入力の指定
-   *
-   * @param stream - 入力の MediaStream (null=入力無効化)
-   */
-  public static async setInput(stream: MediaStream | null) {
-    const context = await AudioController.getContexts();
-    if (context.src != null) {
-      context.src.mediaStream.getTracks().forEach((track) => track.stop());
-      context.src.disconnect();
-      context.src = null;
-    }
-    if (stream != null) {
-      context.src = new MediaStreamAudioSourceNode(context.ctx, {
-        mediaStream: stream,
-      });
-      context.src.connect(context.proc);
-    }
+// NOTE: AudioContext はクリックイベント等を受け取ってから生成しないと
+// 音が出ないかもしれないため、遅延生成する
+let graph: AudioGraph | undefined;
+
+// 初期化中に ensureGraph が並行して呼ばれても AudioContext が
+// 二重生成されないよう、Promise 自体をキャッシュする
+let graphPromise: Promise<AudioGraph> | undefined;
+
+let input: MediaStreamAudioSourceNode | null = null;
+let midiInput: MIDIInput | null = null;
+
+// 最後にビルドしたコード
+// AudioWorkletNode は AudioContext の生成時に作られるため、それ以前の build は
+// 送信先が無い。ここに保持しておき、生成完了時に改めてビルドする
+let lastCode = "";
+
+// worker から届いた最新の描画内容
+let shapes: Types.Shape[] = [];
+
+// --- 永続化 ---------------------------------------------------------------
+
+// worker 側の ps88.save() / ps88.load() が読み書きするデータの保存先
+const SAVE_STORAGE_KEY = "processor";
+
+const loadSaveData = (): Types.SaveData => {
+  try {
+    return JSON.parse(localStorage.getItem(SAVE_STORAGE_KEY) ?? "null");
+  } catch (e) {
+    console.error(e);
+    return null;
   }
+};
 
-  /**
-   * コードのビルド
-   *
-   * ビルドしたコードは保持され、AudioContext の生成時に自動で再ビルドされる。
-   * そのため AudioContext の生成前に呼び出しても構わない。
-   *
-   * @param code - ビルドするコード
-   */
-  public static build(code: string) {
-    AudioController.code = code;
-    AudioController.sendMessage({ type: "build", code });
-  }
-
-  /**
-   * 出力の指定
-   *
-   * @param enable - true=出力有効化, false=出力無効化
-   * @param deviceId - スピーカーのデバイスID (省略時はデフォルトのスピーカーを使用する)
-   */
-  public static async setOutput(enable: boolean, deviceId?: string) {
-    const context = await AudioController.getContexts();
-    context.proc.disconnect();
-    context.dst.pause();
-    if (enable) {
-      const dst = new MediaStreamAudioDestinationNode(context.ctx);
-      context.proc.connect(dst);
-      context.dst.srcObject = dst.stream;
-      if (deviceId != undefined) {
-        const dst = context.dst as {
-          // setSinkId は一部ブラウザでサポートされていないため typescript の型に含まれていない
-          // よって、型定義を無視して呼び出す
-          setSinkId?: (deviceId: string) => Promise<undefined>;
-        };
-        await dst.setSinkId?.(deviceId);
-      }
-      context.dst.play();
+const storeSaveData = (data: Types.SaveData) => {
+  try {
+    if (data == undefined) {
+      localStorage.removeItem(SAVE_STORAGE_KEY);
+    } else {
+      localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(data));
     }
+  } catch (e) {
+    console.error(e);
   }
+};
 
-  /**
-   * MIDI の指定
-   *
-   * @param midi - MIDIInput (null=MIDI無効化)
-   */
-  public static async setMIDI(midi: MIDIInput | null) {
-    const context = await AudioController.getContexts();
-    if (context.midi != null) {
-      context.midi.removeEventListener(
-        "midimessage",
-        AudioController.onMIDIEvent,
-      );
-      await context.midi.close();
-    }
-    context.midi = midi;
-    context.midi?.addEventListener("midimessage", AudioController.onMIDIEvent);
-  }
+// --- worker との通信 ------------------------------------------------------
 
-  // setMIDI のたびに新しいクロージャを作ると removeEventListener で解除できないため、
-  // リスナーは単一の参照を使い回す
-  private static onMIDIEvent = (event: MIDIMessageEvent) => {
-    if (event.data != null) {
-      AudioController.onMIDIMessage(event.data);
-    }
-  };
+const sendMessage = (message: Types.SendMessage) => {
+  graph?.proc.port.postMessage(message);
+};
 
-  /**
-   * MIDI メッセージの送信
-   *
-   * @param data - MIDI メッセージのデータ
-   */
-  public static onMIDIMessage(data: Uint8Array) {
-    const channel = data[0] & 0x0f;
-    const type = data[0] >> 4;
-    const note = data[1];
-    const velocity = data[2] / 127.0;
-    if (type === 0x9) {
-      const type = velocity === 0 ? "NoteOff" : "NoteOn";
-      AudioController.sendMessage({
-        type: "midi",
-        data: { type, timing: 0, channel, note, velocity },
-      });
+const onRecvMessage = (event: MessageEvent) => {
+  const message: Types.RecvMessage = event.data;
+  switch (message.type) {
+    case "draw": {
+      shapes = message.shapes;
       return;
     }
-    if (type === 0x8) {
-      AudioController.sendMessage({
-        type: "midi",
-        data: { type: "NoteOff", timing: 0, channel, note, velocity },
-      });
+    case "save": {
+      storeSaveData(message.data);
       return;
     }
-  }
-
-  public static draw(
-    w: number,
-    h: number,
-    mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
-  ) {
-    AudioController.sendMessage({ type: "draw", w, h, mouse });
-  }
-
-  public static getShapes(): Types.Shape[] {
-    return AudioController.context?.canvas ?? [];
-  }
-
-  // 最後にビルドしたコード
-  // AudioWorkletNode は AudioContext の生成時に作られるため、それ以前の build は
-  // 送信先が無い。ここに保持しておき、生成完了時に改めてビルドする
-  private static code: string = "";
-
-  // context は AudioNode 関連のデータを保持する
-  // NOTE: context のインスタンスはクリックイベント等を受け取ってから生成しないと音が出ないかもしれない
-  private static context?: AudioControllerContext;
-  // 初期化中に getContexts が並行して呼ばれても AudioContext が
-  // 二重生成されないよう、Promise 自体をキャッシュする
-  private static contextPromise?: Promise<AudioControllerContext>;
-  private static getContexts(): Promise<AudioControllerContext> {
-    if (AudioController.contextPromise == undefined) {
-      AudioController.contextPromise = AudioController.createContext().then(
-        (context) => {
-          AudioController.context = context;
-          AudioController.build(AudioController.code);
-          return context;
-        },
-      );
+    default: {
+      Types.assertNever(message);
     }
-    return AudioController.contextPromise;
   }
+};
 
-  private static async createContext(): Promise<AudioControllerContext> {
-    const ctx = new AudioContext({ latencyHint: 0 });
+// MIDI デバイスからのイベント
+// removeEventListener で解除できるよう、参照が変わらないここに置く
+const onMIDIEvent = (event: MIDIMessageEvent) => {
+  if (event.data != null) {
+    sendMIDIMessage(event.data);
+  }
+};
 
-    const processorOptions: Types.ProcessorOptions = { save: null };
-    try {
-      processorOptions.save = JSON.parse(
-        localStorage.getItem("processor") ?? "null",
-      );
-    } catch (e) {
-      console.error(e);
-    }
+// --- AudioNode グラフ -----------------------------------------------------
 
-    // worker の読み込み
-    await ctx.audioWorklet.addModule(workerUrl);
-    const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-      processorOptions: processorOptions,
-      channelCount: 2,
-      channelCountMode: "explicit",
-      channelInterpretation: "speakers",
+const createGraph = async (): Promise<AudioGraph> => {
+  const ctx = new AudioContext({ latencyHint: 0 });
+
+  // worker の読み込み
+  await ctx.audioWorklet.addModule(workerUrl);
+
+  const processorOptions: Types.ProcessorOptions = { save: loadSaveData() };
+  const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    processorOptions: processorOptions,
+    channelCount: 2,
+    channelCountMode: "explicit",
+    channelInterpretation: "speakers",
+  });
+  proc.port.addEventListener("message", onRecvMessage);
+  proc.port.start();
+
+  return { ctx, proc, audio: new Audio() };
+};
+
+/** AudioNode のグラフを返す (未生成であれば生成する) */
+const ensureGraph = (): Promise<AudioGraph> => {
+  if (graphPromise == undefined) {
+    graphPromise = createGraph().then((created) => {
+      graph = created;
+      // 生成前に build されたコードをここで反映する
+      sendMessage({ type: "build", code: lastCode });
+      return created;
     });
-    proc.port.addEventListener("message", AudioController.onRecvMessage);
-    proc.port.start();
-
-    const dst = new Audio();
-    return {
-      ctx,
-      src: null,
-      proc,
-      dst,
-      midi: null,
-      canvas: [],
-    };
   }
+  return graphPromise;
+};
 
-  private static sendMessage(event: Types.SendMessage) {
-    AudioController.context?.proc.port.postMessage(event);
+// --- 公開 API -------------------------------------------------------------
+
+/**
+ * 入力の指定
+ *
+ * @param stream - 入力の MediaStream (null=入力無効化)
+ */
+export const setInput = async (stream: MediaStream | null) => {
+  const { ctx, proc } = await ensureGraph();
+  if (input != null) {
+    input.mediaStream.getTracks().forEach((track) => track.stop());
+    input.disconnect();
+    input = null;
   }
-
-  private static onRecvMessage(event: MessageEvent) {
-    if (AudioController.context == undefined) {
-      return;
-    }
-    const message: Types.RecvMessage = event.data;
-    switch (message.type) {
-      case "draw": {
-        AudioController.context.canvas = message.shapes;
-        return;
-      }
-      case "save": {
-        try {
-          if (message.data == undefined) {
-            localStorage.removeItem("processor");
-          } else {
-            localStorage.setItem("processor", JSON.stringify(message.data));
-          }
-        } catch (e) {
-          console.error(e);
-        }
-        return;
-      }
-      default: {
-        Types.assertNever(message);
-      }
-    }
+  if (stream != null) {
+    input = new MediaStreamAudioSourceNode(ctx, { mediaStream: stream });
+    input.connect(proc);
   }
 };
 
-export default AudioController;
+/**
+ * 出力の指定
+ *
+ * @param enable - true=出力有効化, false=出力無効化
+ * @param deviceId - スピーカーのデバイスID (省略時はデフォルトのスピーカーを使用する)
+ */
+export const setOutput = async (enable: boolean, deviceId?: string) => {
+  const { ctx, proc, audio } = await ensureGraph();
+  proc.disconnect();
+  audio.pause();
+  if (!enable) {
+    return;
+  }
+  const dst = new MediaStreamAudioDestinationNode(ctx);
+  proc.connect(dst);
+  audio.srcObject = dst.stream;
+  if (deviceId != undefined) {
+    // setSinkId は一部のブラウザで未実装のため、存在する場合のみ呼び出す
+    await audio.setSinkId?.(deviceId);
+  }
+  audio.play();
+};
+
+/**
+ * MIDI の指定
+ *
+ * @param device - MIDIInput (null=MIDI無効化)
+ */
+export const setMIDI = async (device: MIDIInput | null) => {
+  await ensureGraph();
+  if (midiInput != null) {
+    midiInput.removeEventListener("midimessage", onMIDIEvent);
+    await midiInput.close();
+  }
+  midiInput = device;
+  midiInput?.addEventListener("midimessage", onMIDIEvent);
+};
+
+/**
+ * MIDI メッセージの送信
+ *
+ * @param data - MIDI メッセージのデータ
+ */
+export const sendMIDIMessage = (data: Uint8Array) => {
+  const channel = data[0] & 0x0f;
+  const status = data[0] >> 4;
+  const note = data[1];
+  const velocity = data[2] / 127.0;
+  if (status === 0x9) {
+    // velocity が 0 の NoteOn は NoteOff として扱う
+    const type = velocity === 0 ? "NoteOff" : "NoteOn";
+    sendMessage({
+      type: "midi",
+      data: { type, timing: 0, channel, note, velocity },
+    });
+    return;
+  }
+  if (status === 0x8) {
+    sendMessage({
+      type: "midi",
+      data: { type: "NoteOff", timing: 0, channel, note, velocity },
+    });
+    return;
+  }
+};
+
+/**
+ * コードのビルド
+ *
+ * ビルドしたコードは保持され、AudioContext の生成時に自動で再ビルドされる。
+ * そのため AudioContext の生成前に呼び出しても構わない。
+ *
+ * @param code - ビルドするコード
+ */
+export const build = (code: string) => {
+  lastCode = code;
+  sendMessage({ type: "build", code });
+};
+
+/**
+ * 描画の要求
+ *
+ * 結果は worker から非同期に届くため、直後の getShapes では反映されない。
+ */
+export const draw = (w: number, h: number, mouse: Types.Mouse) => {
+  sendMessage({ type: "draw", w, h, mouse });
+};
+
+/** worker から最後に届いた描画内容を返す */
+export const getShapes = (): Types.Shape[] => shapes;

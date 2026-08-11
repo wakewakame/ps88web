@@ -3,17 +3,14 @@ import { Canvas } from "./components/Canvas";
 import { CodeEditor } from "./components/CodeEditor";
 import { Keyboard } from "./components/Keyboard";
 import { Toolbar } from "./components/Toolbar";
-import AudioController from "./controller/AudioController";
+import * as AudioController from "./controller/AudioController";
+import type * as Types from "./controller/AudioControllerTypes";
 import { useAudioDevices } from "./hooks/useAudioDevices";
 import { usePreventTouchScroll } from "./hooks/usePreventTouchScroll";
 
 // Canvas は onDraw の参照が変わると描画ループを作り直すため、
 // コンポーネントの外に置いて参照を固定する
-const onDraw = (
-  w: number,
-  h: number,
-  mouse: { x: number; y: number; pressedL: boolean; pressedR: boolean },
-) => {
+const onDraw = (w: number, h: number, mouse: Types.Mouse) => {
   AudioController.draw(w, h, mouse);
   return AudioController.getShapes();
 };
@@ -41,7 +38,7 @@ const App = () => {
         className="w-full h-16 pt-1 box-border flex-none"
         onPointerDown={devices.initOutput}
       >
-        <Keyboard onMIDIMessage={AudioController.onMIDIMessage} />
+        <Keyboard onMIDIMessage={AudioController.sendMIDIMessage} />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import AudioController from "../controller/AudioController";
+import * as AudioController from "../controller/AudioController";
 import defaultProcessorCode from "../controller/Processor?raw";
 
 const STORAGE_KEY = "code";

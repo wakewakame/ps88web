@@ -10,6 +10,14 @@ export const assertNever = (value: never) => {
   console.assert(false, "unhandled value", value);
 };
 
+// マウスの状態
+export type Mouse = {
+  x: number;
+  y: number;
+  pressedL: boolean;
+  pressedR: boolean;
+};
+
 // worker のコンストラクタに渡すオプションの型
 export type ProcessorOptions = {
   save: SaveData;
@@ -25,12 +33,7 @@ export type SendMessageDraw = {
   type: "draw";
   w: number;
   h: number;
-  mouse: {
-    x: number;
-    y: number;
-    pressedL: boolean;
-    pressedR: boolean;
-  };
+  mouse: Mouse;
 };
 export type SendMessageMIDI = {
   type: "midi";

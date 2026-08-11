@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { ButtonSelectorArgs, Option } from "../components/ButtonSelector";
-import AudioController from "../controller/AudioController";
-import AudioDevices from "../controller/AudioDevices";
-import MIDIDevices from "../controller/MIDIDevices";
+import * as AudioController from "../controller/AudioController";
+import * as AudioDevices from "../controller/AudioDevices";
+import * as MIDIDevices from "../controller/MIDIDevices";
 
 // JSX の spread では余剰プロパティチェックが働かないため、ButtonSelectorArgs と
 // 同じ形の型を別に定義するとフィールド名がずれても型エラーにならない。
