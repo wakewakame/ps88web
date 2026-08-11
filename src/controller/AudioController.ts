@@ -1,5 +1,6 @@
 import * as Types from "./AudioControllerTypes.ts";
 import workerUrl from "./AudioControllerWorker.ts?worker&url";
+import { loadSaveData, storeSaveData } from "./SaveStorage.ts";
 
 // 生成後に差し替わらない AudioNode 関連のインスタンス
 type AudioGraph = {
@@ -34,32 +35,6 @@ let shapes: Types.Shape[] = [];
 // worklet の処理が追いつかない場合に遅延とメモリが際限なく増える。
 // 送信を高々 1 件に制限し、追いつかない時は fps が落ちるだけにする
 let drawPending = false;
-
-// --- 永続化 ---------------------------------------------------------------
-
-// worker 側の ps88.save() / ps88.load() が読み書きするデータの保存先
-const SAVE_STORAGE_KEY = "processor";
-
-const loadSaveData = (): Types.SaveData => {
-  try {
-    return JSON.parse(localStorage.getItem(SAVE_STORAGE_KEY) ?? "null");
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
-};
-
-const storeSaveData = (data: Types.SaveData) => {
-  try {
-    if (data == undefined) {
-      localStorage.removeItem(SAVE_STORAGE_KEY);
-    } else {
-      localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(data));
-    }
-  } catch (e) {
-    console.error(e);
-  }
-};
 
 // --- worker との通信 ------------------------------------------------------
 
@@ -103,7 +78,9 @@ const createGraph = async (): Promise<AudioGraph> => {
   // worker の読み込み
   await ctx.audioWorklet.addModule(workerUrl);
 
-  const processorOptions: Types.ProcessorOptions = { save: loadSaveData() };
+  const processorOptions: Types.ProcessorOptions = {
+    save: await loadSaveData(),
+  };
   const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
     numberOfInputs: 1,
     numberOfOutputs: 1,
