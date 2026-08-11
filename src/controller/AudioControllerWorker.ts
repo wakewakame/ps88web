@@ -141,8 +141,10 @@ class WaveformProcessor extends AudioWorkletProcessor {
         audio: outputs[0] ?? [],
         midi: this.midi,
         sampleRate: sampleRate,
+        // DAW が無いため再生位置とテンポは不明。
+        // ps88.d.ts の定義どおり、いずれも 0 を「不明」として扱う
         posSamples: 0,
-        bpm: 120,
+        bpm: 0,
       };
       try {
         this.audioCallback(ctx);
