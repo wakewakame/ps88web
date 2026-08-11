@@ -32,6 +32,19 @@ const AudioController = class {
   }
 
   /**
+   * コードのビルド
+   *
+   * ビルドしたコードは保持され、AudioContext の生成時に自動で再ビルドされる。
+   * そのため AudioContext の生成前に呼び出しても構わない。
+   *
+   * @param code - ビルドするコード
+   */
+  public static build(code: string) {
+    AudioController.code = code;
+    AudioController.sendMessage({ type: "build", code });
+  }
+
+  /**
    * 出力の指定
    *
    * @param enable - true=出力有効化, false=出力無効化
@@ -110,10 +123,6 @@ const AudioController = class {
     }
   }
 
-  public static build(code: string) {
-    AudioController.sendMessage({ type: "build", code: code });
-  }
-
   public static draw(
     w: number,
     h: number,
@@ -126,6 +135,11 @@ const AudioController = class {
     return AudioController.context?.canvas ?? [];
   }
 
+  // 最後にビルドしたコード
+  // AudioWorkletNode は AudioContext の生成時に作られるため、それ以前の build は
+  // 送信先が無い。ここに保持しておき、生成完了時に改めてビルドする
+  private static code: string = "";
+
   // context は AudioNode 関連のデータを保持する
   // NOTE: context のインスタンスはクリックイベント等を受け取ってから生成しないと音が出ないかもしれない
   private static context?: AudioControllerContext;
@@ -137,6 +151,7 @@ const AudioController = class {
       AudioController.contextPromise = AudioController.createContext().then(
         (context) => {
           AudioController.context = context;
+          AudioController.build(AudioController.code);
           return context;
         },
       );
