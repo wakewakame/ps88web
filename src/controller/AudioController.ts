@@ -204,24 +204,28 @@ const AudioController = class {
     if (AudioController.context == undefined) {
       return;
     }
-    if (Types.isRecvMessageDraw(event.data)) {
-      AudioController.context.canvas = event.data.shapes;
-      return;
-    }
-    if (Types.isRecvMessageSave(event.data)) {
-      try {
-        const data = event.data.data;
-        if (data == undefined) {
-          localStorage.removeItem("processor");
-        } else {
-          localStorage.setItem("processor", JSON.stringify(data));
-        }
-      } catch (e) {
-        console.error(e);
+    const message: Types.RecvMessage = event.data;
+    switch (message.type) {
+      case "draw": {
+        AudioController.context.canvas = message.shapes;
+        return;
       }
-      return;
+      case "save": {
+        try {
+          if (message.data == undefined) {
+            localStorage.removeItem("processor");
+          } else {
+            localStorage.setItem("processor", JSON.stringify(message.data));
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        return;
+      }
+      default: {
+        Types.assertNever(message);
+      }
     }
-    console.assert(false, "unknown message type", event.data);
   }
 };
 

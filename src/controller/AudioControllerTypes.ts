@@ -1,5 +1,15 @@
 import type * as PS88 from "../../lib/ps88.d.ts";
 
+/**
+ * 判別可能ユニオンの網羅性をコンパイル時に検査する
+ *
+ * switch の default で呼び出すと、すべての case を処理している場合のみ
+ * 引数が never に絞られる。処理漏れがあるとコンパイルエラーになる。
+ */
+export const assertNever = (value: never) => {
+  console.assert(false, "unhandled value", value);
+};
+
 // worker のコンストラクタに渡すオプションの型
 export type ProcessorOptions = {
   save: SaveData;
@@ -11,8 +21,6 @@ export type SendMessageBuild = {
   type: "build";
   code: string;
 };
-export const isSendMessageBuild = (msg: SendMessage): msg is SendMessageBuild =>
-  msg.type === "build";
 export type SendMessageDraw = {
   type: "draw";
   w: number;
@@ -24,14 +32,10 @@ export type SendMessageDraw = {
     pressedR: boolean;
   };
 };
-export const isSendMessageDraw = (msg: SendMessage): msg is SendMessageDraw =>
-  msg.type === "draw";
 export type SendMessageMIDI = {
   type: "midi";
   data: NoteEvent;
 };
-export const isSendMessageMIDI = (msg: SendMessage): msg is SendMessageMIDI =>
-  msg.type === "midi";
 
 // worker から受信するメッセージの型
 export type RecvMessage = RecvMessageDraw | RecvMessageSave;
@@ -39,23 +43,15 @@ export type RecvMessageDraw = {
   type: "draw";
   shapes: Shape[];
 };
-export const isRecvMessageDraw = (msg: RecvMessage): msg is RecvMessageDraw =>
-  msg.type === "draw";
 export type RecvMessageSave = {
   type: "save";
   data: SaveData;
 };
-export const isRecvMessageSave = (msg: RecvMessage): msg is RecvMessageSave =>
-  msg.type === "save";
 
 // 永続化データの型
 export type SaveData = SaveDataBytes | SaveDataText | null | undefined;
 export type SaveDataBytes = { type: "bytes"; data: Uint8Array };
-export const isSaveDataBytes = (data: SaveData): data is SaveDataBytes =>
-  data?.type === "bytes";
 export type SaveDataText = { type: "string"; data: string };
-export const isSaveDataText = (data: SaveData): data is SaveDataText =>
-  data?.type === "string";
 
 // MIDI イベントの型
 export type NoteEvent = PS88.NoteEvent;
@@ -70,8 +66,6 @@ export type ShapePolygon = {
   strokeWidth?: number;
   strokeClosed?: boolean;
 };
-export const isShapePolygon = (shape: Shape): shape is ShapePolygon =>
-  shape.type === "polygon";
 export type ShapeText = {
   type: "text";
   text: string;
@@ -80,5 +74,3 @@ export type ShapeText = {
   size?: number;
   color?: number;
 };
-export const isShapeText = (shape: Shape): shape is ShapeText =>
-  shape.type === "text";

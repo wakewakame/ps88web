@@ -43,35 +43,31 @@ class WaveformProcessor extends AudioWorkletProcessor {
         }
         recvMessage({ type: "save", data: this.save });
       },
-      load: () => {
-        if (Types.isSaveDataBytes(this.save)) {
-          return this.save.data;
-        } else if (Types.isSaveDataText(this.save)) {
-          return this.save.data;
-        } else {
-          return null;
-        }
-      },
+      load: () => this.save?.data ?? null,
     };
 
     this.port.addEventListener("message", (event: MessageEvent) => {
-      if (Types.isSendMessageBuild(event.data)) {
-        try {
-          new Function("ps88", event.data.code)(api);
-        } catch (e) {
-          this.audioCallback = undefined;
-          this.guiCallback = undefined;
-          console.error(e);
+      const message: Types.SendMessage = event.data;
+      switch (message.type) {
+        case "build": {
+          try {
+            new Function("ps88", message.code)(api);
+          } catch (e) {
+            this.audioCallback = undefined;
+            this.guiCallback = undefined;
+            console.error(e);
+          }
+          return;
         }
-        return;
-      }
-      if (Types.isSendMessageDraw(event.data)) {
-        if (this.guiCallback != undefined) {
+        case "draw": {
+          if (this.guiCallback == undefined) {
+            return;
+          }
           const shapes: Types.Shape[] = [];
           const ctx: PS88.GuiContext = {
-            w: event.data.w,
-            h: event.data.h,
-            mouse: event.data.mouse,
+            w: message.w,
+            h: message.h,
+            mouse: message.mouse,
             addPolygon: (
               path: [number, number][],
               options?: {
@@ -103,14 +99,16 @@ class WaveformProcessor extends AudioWorkletProcessor {
             console.error(e);
           }
           recvMessage({ type: "draw", shapes });
+          return;
         }
-        return;
+        case "midi": {
+          this.midi.push(message.data);
+          return;
+        }
+        default: {
+          Types.assertNever(message);
+        }
       }
-      if (Types.isSendMessageMIDI(event.data)) {
-        this.midi.push(event.data.data);
-        return;
-      }
-      console.assert(false, "unknown message type", event.data);
     });
     this.port.start();
   }

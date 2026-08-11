@@ -49,37 +49,41 @@ export const Canvas = ({ width, height, onDraw }: CanvasArgs) => {
       const shapes = onDraw?.(width, height, mouse) ?? [];
       for (let i = 0; i < shapes.length; i++) {
         const shape = shapes[i];
-        if (Types.isShapePolygon(shape)) {
-          ctx.beginPath();
-          for (let j = 0; j < shape.path.length; j++) {
-            const [x, y] = shape.path[j];
-            if (j === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
+        switch (shape.type) {
+          case "polygon": {
+            ctx.beginPath();
+            for (let j = 0; j < shape.path.length; j++) {
+              const [x, y] = shape.path[j];
+              if (j === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
             }
+            if (shape.strokeClosed ?? false) {
+              ctx.closePath();
+            }
+            if (shape.fill != undefined) {
+              ctx.fillStyle = `#${shape.fill.toString(16).padStart(8, "0")}`;
+              ctx.fill();
+            }
+            if (shape.stroke != undefined && shape.strokeWidth !== 0) {
+              ctx.strokeStyle = `#${shape.stroke.toString(16).padStart(8, "0")}`;
+              ctx.lineWidth = shape.strokeWidth ?? 1;
+              ctx.stroke();
+            }
+            continue;
           }
-          if (shape.strokeClosed ?? false) {
-            ctx.closePath();
+          case "text": {
+            ctx.font = `${shape.size ?? 16}px "Roboto Mono"`;
+            ctx.fillStyle = `#${shape.color?.toString(16).padStart(8, "0") ?? "fff"}`;
+            ctx.fillText(shape.text, shape.x, shape.y);
+            continue;
           }
-          if (shape.fill != undefined) {
-            ctx.fillStyle = `#${shape.fill.toString(16).padStart(8, "0")}`;
-            ctx.fill();
+          default: {
+            Types.assertNever(shape);
           }
-          if (shape.stroke != undefined && shape.strokeWidth !== 0) {
-            ctx.strokeStyle = `#${shape.stroke.toString(16).padStart(8, "0")}`;
-            ctx.lineWidth = shape.strokeWidth ?? 1;
-            ctx.stroke();
-          }
-          continue;
         }
-        if (Types.isShapeText(shape)) {
-          ctx.font = `${shape.size ?? 16}px "Roboto Mono"`;
-          ctx.fillStyle = `#${shape.color?.toString(16).padStart(8, "0") ?? "fff"}`;
-          ctx.fillText(shape.text, shape.x, shape.y);
-          continue;
-        }
-        console.assert(false, "unknown shape type", shape);
       }
       ref = requestAnimationFrame(loop);
     };
