@@ -1,6 +1,9 @@
 import * as Types from "./AudioControllerTypes.ts";
 import workerUrl from "./AudioControllerWorker.ts?worker&url";
-import { loadSaveData, storeSaveData } from "./SaveStorage.ts";
+import * as Storage from "./Storage.ts";
+
+// ps88.save() / ps88.load() が読み書きするデータの保存先
+const SAVE_STORAGE_KEY = "save";
 
 // 生成後に差し替わらない AudioNode 関連のインスタンス
 type AudioGraph = {
@@ -53,7 +56,7 @@ const onRecvMessage = (event: MessageEvent) => {
       return;
     }
     case "save": {
-      storeSaveData(message.data);
+      Storage.store(SAVE_STORAGE_KEY, message.data);
       return;
     }
     default: {
@@ -79,7 +82,7 @@ const createGraph = async (): Promise<AudioGraph> => {
   await ctx.audioWorklet.addModule(workerUrl);
 
   const processorOptions: Types.ProcessorOptions = {
-    save: await loadSaveData(),
+    save: await Storage.load<Types.SaveData>(SAVE_STORAGE_KEY),
   };
   const proc = new AudioWorkletNode(ctx, "ps88web-proc", {
     numberOfInputs: 1,
