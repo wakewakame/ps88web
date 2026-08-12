@@ -19,7 +19,7 @@ export type DeviceToggle = Required<Pick<ButtonSelectorArgs, "enable">> & {
 export type DeviceSelector = Required<
   Pick<
     ButtonSelectorArgs,
-    "enable" | "options" | "disabled" | "onOpen" | "onChange"
+    "enable" | "options" | "disabled" | "selected" | "onOpen" | "onChange"
   >
 >;
 
@@ -104,6 +104,12 @@ export const useAudioDevices = (): AudioDeviceControls => {
   const [outputEnable, setOutputEnable] = useState(false);
   const [midiEnable, setMIDIEnable] = useState(false);
 
+  // 選択中のデバイス (null=既定のデバイス)。
+  // ButtonSelector は制御コンポーネントなので、選択状態はここで保持する
+  const [inputDeviceId, setInputDeviceId] = useState<string | null>(null);
+  const [outputDeviceId, setOutputDeviceId] = useState<string | null>(null);
+  const [midiDeviceId, setMIDIDeviceId] = useState<string | null>(null);
+
   const inputOptions = useDeviceOptions(listInputs, toAudioOption);
   const outputOptions = useDeviceOptions(listOutputs, toAudioOption);
   const midiOptions = useDeviceOptions(listMIDIs, toMIDIOption);
@@ -117,6 +123,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
   }, []);
 
   const setInput = useCallback(async (enable: boolean, id: string | null) => {
+    setInputDeviceId(id);
     const stream = enable
       ? await AudioDevices.getInputStream(id ?? undefined)
       : null;
@@ -135,6 +142,8 @@ export const useAudioDevices = (): AudioDeviceControls => {
     async (enable: boolean, id: string | null): Promise<boolean> => {
       outputPending.current = true;
       try {
+        // 復元時や既定デバイスへの再試行でも選択表示が追随するよう、ここで更新する
+        setOutputDeviceId(id);
         // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
         const enabled = await AudioController.setOutput(
           enable,
@@ -211,6 +220,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
   }, [applyOutput]);
 
   const applyMIDI = useCallback(async (enable: boolean, id: string | null) => {
+    setMIDIDeviceId(id);
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
     setMIDIEnable(midi != null);
     await AudioController.setMIDI(midi);
@@ -251,10 +261,21 @@ export const useAudioDevices = (): AudioDeviceControls => {
     input: {
       enable: inputSource === "mic",
       ...inputOptions,
+      selected: inputDeviceId,
       onChange: setInput,
     },
-    output: { enable: outputEnable, ...outputOptions, onChange: setOutput },
-    midi: { enable: midiEnable, ...midiOptions, onChange: setMIDI },
+    output: {
+      enable: outputEnable,
+      ...outputOptions,
+      selected: outputDeviceId,
+      onChange: setOutput,
+    },
+    midi: {
+      enable: midiEnable,
+      ...midiOptions,
+      selected: midiDeviceId,
+      onChange: setMIDI,
+    },
     initOutput,
   };
 };
