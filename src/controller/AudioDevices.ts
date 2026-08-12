@@ -8,16 +8,19 @@
  *
  * @returns 解禁できたか
  */
-const unlockDeviceList = async (): Promise<boolean> => {
-  let state: PermissionState | undefined;
+const getPermissionState = async (): Promise<PermissionState | undefined> => {
   try {
-    state = (await navigator.permissions.query({ name: "microphone" })).state;
+    return (await navigator.permissions.query({ name: "microphone" })).state;
   } catch (e) {
     // name: "microphone" に対応していないブラウザでは reject する。
-    // 状態が分からないだけなので、下の getUserMedia を試して判断する
+    // 状態が分からないだけなので undefined を返す
     console.warn(e);
+    return undefined;
   }
-  if (state === "denied") {
+};
+
+const unlockDeviceList = async (): Promise<boolean> => {
+  if ((await getPermissionState()) === "denied") {
     return false;
   }
   try {
@@ -31,6 +34,22 @@ const unlockDeviceList = async (): Promise<boolean> => {
     console.warn(e);
     return false;
   }
+};
+
+/**
+ * 権限のプロンプトを出さずに済む場合のみ、デバイスの列挙を解禁する
+ *
+ * Firefox は setSinkId で出力デバイスを指名する場合も列挙の解禁を要求する。
+ * 起動時の設定復元のために使うが、初見のユーザーにいきなりマイクの許可を
+ * 求めるのは避けたいため、既に granted の場合に限る。
+ *
+ * @returns 解禁できたか
+ */
+export const unlockDeviceListIfGranted = async (): Promise<boolean> => {
+  if ((await getPermissionState()) !== "granted") {
+    return false;
+  }
+  return await unlockDeviceList();
 };
 
 /**

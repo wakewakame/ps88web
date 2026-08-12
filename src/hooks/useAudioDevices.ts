@@ -211,9 +211,21 @@ export const useAudioDevices = (): AudioDeviceControls => {
         void applyOutput(false, saved.deviceId);
         return;
       }
-      const ok = await applyOutput(true, saved.deviceId);
-      // 保存していたデバイスが失われている場合があるため、既定のデバイスで再試行する
-      if (!ok && !cancelled && saved.deviceId != null) {
+      let ok = await applyOutput(true, saved.deviceId);
+      if (ok || cancelled || saved.deviceId == null) {
+        return;
+      }
+      // Firefox は、そのドキュメントで getUserMedia を呼ぶまで出力デバイスを
+      // 指名できず setSinkId が NotFoundError になる。既にマイクの権限がある
+      // 場合に限り、一瞬だけ解禁して再試行する (プロンプトは出さない)
+      if (await AudioDevices.unlockDeviceListIfGranted()) {
+        if (cancelled) {
+          return;
+        }
+        ok = await applyOutput(true, saved.deviceId);
+      }
+      // それでも駄目なら、デバイスが失われているとみなして既定のデバイスで鳴らす
+      if (!ok && !cancelled) {
         await applyOutput(true, null);
       }
     });
