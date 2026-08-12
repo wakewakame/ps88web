@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && typedoc ./lib/ps88.d.ts --out ./public/docs && vite build",
+    "test": "vitest run",
     "lint": "oxlint",
     "fmt": "prettier --write ./lib ./src ./public",
     "preview": "vite preview",
@@ -31,6 +32,7 @@
     "prettier": "^3.9.1",
     "typedoc": "^0.28.19",
     "typescript": "~6.0.2",
-    "vite": "^8.1.0"
+    "vite": "^8.1.0",
+    "vitest": "^4.1.10"
   }
 }

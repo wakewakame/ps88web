@@ -183,11 +183,17 @@ export const setMIDI = async (device: MIDIInput | null) => {
 };
 
 /**
- * MIDI メッセージの送信
+ * MIDI メッセージを NoteEvent に変換する
  *
  * @param data - MIDI メッセージのデータ
+ * @returns 対応する NoteEvent (NoteOn / NoteOff 以外のメッセージは null)
  */
-export const sendMIDIMessage = (data: Uint8Array) => {
+export const parseMIDIMessage = (data: Uint8Array): Types.NoteEvent | null => {
+  // NoteOn / NoteOff は必ず 3 バイト。満たないものは壊れたメッセージとして捨てる
+  // (data[1] や data[2] が undefined になり note や velocity が NaN になるため)
+  if (data.length < 3) {
+    return null;
+  }
   const channel = data[0] & 0x0f;
   const status = data[0] >> 4;
   const note = data[1];
@@ -195,18 +201,23 @@ export const sendMIDIMessage = (data: Uint8Array) => {
   if (status === 0x9) {
     // velocity が 0 の NoteOn は NoteOff として扱う
     const type = velocity === 0 ? "NoteOff" : "NoteOn";
-    sendMessage({
-      type: "midi",
-      data: { type, timing: 0, channel, note, velocity },
-    });
-    return;
+    return { type, timing: 0, channel, note, velocity };
   }
   if (status === 0x8) {
-    sendMessage({
-      type: "midi",
-      data: { type: "NoteOff", timing: 0, channel, note, velocity },
-    });
-    return;
+    return { type: "NoteOff", timing: 0, channel, note, velocity };
+  }
+  return null;
+};
+
+/**
+ * MIDI メッセージの送信
+ *
+ * @param data - MIDI メッセージのデータ
+ */
+export const sendMIDIMessage = (data: Uint8Array) => {
+  const event = parseMIDIMessage(data);
+  if (event != null) {
+    sendMessage({ type: "midi", data: event });
   }
 };
 
