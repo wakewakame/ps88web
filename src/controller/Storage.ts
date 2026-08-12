@@ -4,7 +4,7 @@
 
 const DB_NAME = "ps88web";
 const DB_VERSION = 1;
-const STORE_NAME = "processor";
+const STORE_NAME = "keyValue";
 
 const openDB = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -64,9 +64,8 @@ const flush = async () => {
         if (boxed.value == undefined) {
           await request("readwrite", (objectStore) => objectStore.delete(key));
         } else {
-          const value = boxed.value;
           await request("readwrite", (objectStore) =>
-            objectStore.put(value, key),
+            objectStore.put(boxed.value, key),
           );
         }
       }
