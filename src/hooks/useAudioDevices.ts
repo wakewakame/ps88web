@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ButtonSelectorArgs, Option } from "../components/ButtonSelector";
 import * as AudioController from "../controller/AudioController";
 import * as AudioDevices from "../controller/AudioDevices";
 import * as MIDIDevices from "../controller/MIDIDevices";
+import * as Storage from "../controller/Storage";
 
 // JSX の spread では余剰プロパティチェックが働かないため、ButtonSelectorArgs と
 // 同じ形の型を別に定義するとフィールド名がずれても型エラーにならない。
@@ -28,12 +29,23 @@ export type AudioDeviceControls = {
   output: DeviceSelector;
   midi: DeviceSelector;
   /**
-   * 出力をまだ初期化していなければ初期化する
+   * 出力がまだ有効でなければ有効にする
    *
-   * AudioContext はユーザー操作を受けてからでないと音が出ないため、
-   * 最初のポインタ操作でこれを呼び出す。
+   * 自動再生ポリシーで起動時の復元が拒否されることがあるため、
+   * 最初のポインタ操作でこれを呼び出して確実に有効化する。
    */
   initOutput: () => void;
+};
+
+// 出力の設定は次回の起動時に復元する。
+// 入力 (マイク) は、開いただけで録音インジケータが点灯し驚かせるため復元しない。
+// 画面キャプチャは getDisplayMedia が仕様上ユーザー操作を必須とするため復元できない
+const OUTPUT_STORAGE_KEY = "output";
+
+type OutputSetting = {
+  // ユーザーが有効にしたかどうか。実際に有効化できたかではない
+  enabled: boolean;
+  deviceId: string | null;
 };
 
 const listInputs = () => AudioDevices.getDevices("audioinput");
@@ -106,19 +118,91 @@ export const useAudioDevices = (): AudioDeviceControls => {
     await AudioController.setInput(stream);
   }, []);
 
-  // 初期化中に再度呼ばれても二重に初期化しないよう、state ではなく ref で持つ
-  const outputInitialized = useRef(false);
-  const setOutput = useCallback(async (enable: boolean, id: string | null) => {
-    outputInitialized.current = true;
-    // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
-    setOutputEnable(await AudioController.setOutput(enable, id ?? undefined));
-  }, []);
+  // 実行中に再度呼ばれても二重に初期化しないよう、state ではなく ref で持つ
+  const outputPending = useRef(false);
+  // 有効かどうかを初期化時のクロージャからも読めるようにする
+  const outputEnabled = useRef(false);
+  // 復元した設定。initOutput でのフォールバック時にデバイスを引き継ぐ
+  const savedOutput = useRef<OutputSetting | null>(null);
+
+  const applyOutput = useCallback(
+    async (enable: boolean, id: string | null): Promise<boolean> => {
+      outputPending.current = true;
+      try {
+        // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
+        const enabled = await AudioController.setOutput(
+          enable,
+          id ?? undefined,
+        );
+        outputEnabled.current = enabled;
+        setOutputEnable(enabled);
+        return enabled;
+      } finally {
+        outputPending.current = false;
+      }
+    },
+    [],
+  );
+
+  // ユーザーがこのセッションで出力を選択したか。
+  // 明示的に切ったあとにポインタ操作で勝手に戻さないために見る
+  const outputChosen = useRef(false);
+
+  const setOutput = useCallback(
+    async (enable: boolean, id: string | null) => {
+      outputChosen.current = true;
+      // 保存するのは要求値。自動再生ポリシーで拒否されても、
+      // 次回の起動では改めて有効化を試みる
+      const setting: OutputSetting = { enabled: enable, deviceId: id };
+      savedOutput.current = setting;
+      Storage.store(OUTPUT_STORAGE_KEY, setting);
+      await applyOutput(enable, id);
+    },
+    [applyOutput],
+  );
+
+  // ポインタ操作による有効化もユーザーの意思なので、setOutput 経由で保存する
   const initOutput = useCallback(() => {
-    if (outputInitialized.current) {
+    if (
+      outputChosen.current ||
+      outputEnabled.current ||
+      outputPending.current
+    ) {
       return;
     }
-    setOutput(true, null);
+    void setOutput(true, savedOutput.current?.deviceId ?? null);
   }, [setOutput]);
+
+  // 起動時に前回の出力設定を復元する。
+  // 自動再生ポリシーで拒否された場合は、最初のポインタ操作 (initOutput) に任せる
+  useEffect(() => {
+    let cancelled = false;
+    void Storage.load<OutputSetting>(OUTPUT_STORAGE_KEY).then(async (saved) => {
+      if (cancelled || saved == null) {
+        return;
+      }
+      savedOutput.current = saved;
+      if (outputEnabled.current || outputPending.current) {
+        return;
+      }
+      if (!saved.enabled) {
+        // 明示的に無効にされていたので、ポインタ操作でも有効化しない。
+        // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
+        // (setOutput(false) は ensureGraph したうえで出力を切断する)
+        outputChosen.current = true;
+        void applyOutput(false, saved.deviceId);
+        return;
+      }
+      const ok = await applyOutput(true, saved.deviceId);
+      // 保存していたデバイスが失われている場合があるため、既定のデバイスで再試行する
+      if (!ok && !cancelled && saved.deviceId != null) {
+        await applyOutput(true, null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyOutput]);
 
   const setMIDI = useCallback(async (enable: boolean, id: string | null) => {
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
