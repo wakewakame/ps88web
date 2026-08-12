@@ -142,8 +142,9 @@ export const useAudioDevices = (): AudioDeviceControls => {
     async (enable: boolean, id: string | null): Promise<boolean> => {
       outputPending.current = true;
       try {
-        // 復元時や既定デバイスへの再試行でも選択表示が追随するよう、ここで更新する
-        setOutputDeviceId(id);
+        // ここでは選択状態を更新しない。既定デバイスへ再試行したときに
+        // ユーザーが選んだデバイスを上書きしてしまい、その後のトグル操作で
+        // 保存まで消えてしまうため (選択状態は「適用中」ではなく「希望」を表す)
         // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
         const enabled = await AudioController.setOutput(
           enable,
@@ -166,6 +167,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
   const setOutput = useCallback(
     async (enable: boolean, id: string | null) => {
       outputChosen.current = true;
+      setOutputDeviceId(id);
       // 保存するのは要求値。自動再生ポリシーで拒否されても、
       // 次回の起動では改めて有効化を試みる
       const setting: OutputSetting = { enabled: enable, deviceId: id };
@@ -197,6 +199,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
         return;
       }
       savedOutput.current = saved;
+      setOutputDeviceId(saved.deviceId);
       if (outputEnabled.current || outputPending.current) {
         return;
       }
