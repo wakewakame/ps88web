@@ -56,19 +56,28 @@ const pending = new Map<string, { value: unknown }>();
 let isFlushing = false;
 
 const flush = async () => {
-  while (pending.size > 0) {
-    const entries = [...pending];
-    pending.clear();
-    for (const [key, boxed] of entries) {
-      if (boxed.value == undefined) {
-        await request("readwrite", (objectStore) => objectStore.delete(key));
-      } else {
-        const value = boxed.value;
-        await request("readwrite", (objectStore) =>
-          objectStore.put(value, key),
-        );
+  try {
+    while (pending.size > 0) {
+      const entries = [...pending];
+      pending.clear();
+      for (const [key, boxed] of entries) {
+        if (boxed.value == undefined) {
+          await request("readwrite", (objectStore) => objectStore.delete(key));
+        } else {
+          const value = boxed.value;
+          await request("readwrite", (objectStore) =>
+            objectStore.put(value, key),
+          );
+        }
       }
     }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    // while を抜けるのと同じタイミングでフラグを下ろす。
+    // Promise の then や finally に置くとマイクロタスクまで下がらず、
+    // その間に来た store() が pending に積まれたまま書き込まれない
+    isFlushing = false;
   }
 };
 
@@ -79,9 +88,5 @@ export const store = (key: string, value: unknown) => {
     return;
   }
   isFlushing = true;
-  void flush()
-    .catch((e) => console.error(e))
-    .finally(() => {
-      isFlushing = false;
-    });
+  void flush();
 };
