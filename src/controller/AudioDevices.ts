@@ -1,4 +1,14 @@
-const getPermission = async (): Promise<boolean> => {
+/**
+ * デバイスの列挙を解禁する
+ *
+ * enumerateDevices は権限が無いとデバイスID もラベルも空文字で返す。さらに
+ * Firefox では、権限が granted であっても、そのドキュメントで実際に
+ * getUserMedia を呼ぶまで出力デバイスを一切列挙しない。そのため権限の状態に
+ * 関わらず一度ストリームを取得し、列挙できる状態にしてから即座に停止する。
+ *
+ * @returns 解禁できたか
+ */
+const unlockDeviceList = async (): Promise<boolean> => {
   let state: PermissionState | undefined;
   try {
     state = (await navigator.permissions.query({ name: "microphone" })).state;
@@ -10,10 +20,6 @@ const getPermission = async (): Promise<boolean> => {
   if (state === "denied") {
     return false;
   }
-  if (state === "granted") {
-    return true;
-  }
-  // "prompt" もしくは状態不明。アクセス権限を得るために、一旦ダミーでマイクを取得する
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -31,18 +37,26 @@ const getPermission = async (): Promise<boolean> => {
  * マイク or スピーカーのデバイス一覧を取得
  *
  * @param kind - "audioinput"=マイク, "audiooutput"=スピーカー
- * @returns マイク or スピーカーのデバイス一覧
+ * @returns マイク or スピーカーのデバイス一覧 (取得できなかった場合は null)
  */
 export const getDevices = async (
   kind: "audioinput" | "audiooutput",
 ): Promise<MediaDeviceInfo[] | null> => {
-  if (!(await getPermission())) {
+  // デバイスIDが空のものは列挙が解禁されていないことを表すため除く
+  const list = async () =>
+    (await navigator.mediaDevices.enumerateDevices()).filter(
+      (device) => device.kind === kind && device.deviceId !== "",
+    );
+  // 先に列挙を試す。Chrome は権限があればそのまま列挙できるため、
+  // 一覧を見るためだけにマイクを開かずに済む
+  const devices = await list();
+  if (devices.length > 0) {
+    return devices;
+  }
+  if (!(await unlockDeviceList())) {
     return null;
   }
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  return devices.filter(
-    (device) => device.kind == kind && device.deviceId !== "",
-  );
+  return await list();
 };
 
 /**
@@ -54,9 +68,8 @@ export const getDevices = async (
 export const getInputStream = async (
   deviceId?: string,
 ): Promise<MediaStream | null> => {
-  if (!(await getPermission())) {
-    return null;
-  }
+  // 権限の事前確認はしない。下の getUserMedia が必要なら自分でプロンプトを出し、
+  // 拒否されれば catch する。先に確認すると getUserMedia を二重に呼ぶことになる
   const options: MediaStreamConstraints = {
     audio: {
       autoGainControl: false,
