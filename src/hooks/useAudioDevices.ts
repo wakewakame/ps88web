@@ -41,9 +41,15 @@ export type AudioDeviceControls = {
 // 入力 (マイク) は、開いただけで録音インジケータが点灯し驚かせるため復元しない。
 // 画面キャプチャは getDisplayMedia が仕様上ユーザー操作を必須とするため復元できない
 const OUTPUT_STORAGE_KEY = "output";
+const MIDI_STORAGE_KEY = "midi";
 
 type OutputSetting = {
   // ユーザーが有効にしたかどうか。実際に有効化できたかではない
+  enabled: boolean;
+  deviceId: string | null;
+};
+
+type MIDISetting = {
   enabled: boolean;
   deviceId: string | null;
 };
@@ -204,11 +210,41 @@ export const useAudioDevices = (): AudioDeviceControls => {
     };
   }, [applyOutput]);
 
-  const setMIDI = useCallback(async (enable: boolean, id: string | null) => {
+  const applyMIDI = useCallback(async (enable: boolean, id: string | null) => {
     const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
     setMIDIEnable(midi != null);
     await AudioController.setMIDI(midi);
   }, []);
+
+  // 復元が終わる前にユーザーが操作した場合、復元で上書きしないために見る
+  const midiChosen = useRef(false);
+
+  const setMIDI = useCallback(
+    async (enable: boolean, id: string | null) => {
+      midiChosen.current = true;
+      Storage.store(MIDI_STORAGE_KEY, { enabled: enable, deviceId: id });
+      await applyMIDI(enable, id);
+    },
+    [applyMIDI],
+  );
+
+  // 起動時に前回の MIDI 設定を復元する。
+  // requestMIDIAccess はユーザー操作を必要とせず、権限も既定で granted のため、
+  // 出力と違って復元が拒否されることは無い
+  useEffect(() => {
+    let cancelled = false;
+    void Storage.load<MIDISetting>(MIDI_STORAGE_KEY).then((saved) => {
+      if (cancelled || midiChosen.current || saved == null || !saved.enabled) {
+        return;
+      }
+      // 保存していたデバイスが見つからない場合は無効のままにする。
+      // 出力と違い、別の機器に勝手に繋ぐと想定外の入力になるため
+      void applyMIDI(true, saved.deviceId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyMIDI]);
 
   return {
     display: { enable: inputSource === "display", onChange: setDisplay },
