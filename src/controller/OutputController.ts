@@ -61,16 +61,9 @@ export const getSnapshot = (): OutputState => state;
 // AudioController.setOutput が await を跨いで互いの接続を切り合い、
 // 戻り値も実際の状態と食い違うため、必ず前の操作の完了を待ってから実行する。
 let queue: Promise<void> = Promise.resolve();
-let running = 0;
 
 const enqueue = (task: () => Promise<void>) => {
-  running++;
-  queue = queue
-    .then(task)
-    .catch((e) => console.error(e))
-    .finally(() => {
-      running--;
-    });
+  queue = queue.then(task).catch((e) => console.error(e));
 };
 
 // --- 適用 ------------------------------------------------------------------
@@ -143,7 +136,10 @@ export const set = (enabled: boolean, deviceId: string | null) => {
  * 何もしない。
  */
 export const init = () => {
-  if (state.chosen || state.enabled || running > 0) {
+  // 実行中かどうかは見ない。復元はグラフの生成を含むため数百 ms かかることが
+  // あり、その間のクリックを捨てると、自動再生を解禁する最初のジェスチャを
+  // 無駄にしてしまう。連打は set が chosen を同期的に立てることで弾ける
+  if (state.chosen || state.enabled) {
     return;
   }
   set(true, state.deviceId);
