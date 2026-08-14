@@ -164,6 +164,36 @@ export const useAudioDevices = (): AudioDeviceControls => {
   // 明示的に切ったあとにポインタ操作で勝手に戻さないために見る
   const outputChosen = useRef(false);
 
+  /**
+   * 出力を有効にする
+   *
+   * 指定したデバイスを使えない場合は、解禁を試したうえで既定のデバイスに
+   * 落とす。ここで既定に落とさないと、保存していたデバイスが使えない環境で
+   * 復元もポインタ操作も失敗し続け、音が出せなくなる
+   */
+  const enableOutput = useCallback(
+    async (id: string | null): Promise<boolean> => {
+      if (await applyOutput(true, id)) {
+        return true;
+      }
+      if (id == null) {
+        return false;
+      }
+      // Firefox は、そのドキュメントで getUserMedia を呼ぶまで出力デバイスを
+      // 指名できず setSinkId が NotFoundError になる。Chrome も権限が無いと
+      // SecurityError になる。既に権限がある場合に限り解禁して再試行する
+      // (起動時にプロンプトを出さないため granted の場合のみ)
+      if (await AudioDevices.unlockDeviceListIfGranted()) {
+        if (await applyOutput(true, id)) {
+          return true;
+        }
+      }
+      // それでも駄目なら、デバイスが使えないとみなして既定のデバイスで鳴らす
+      return await applyOutput(true, null);
+    },
+    [applyOutput],
+  );
+
   const setOutput = useCallback(
     async (enable: boolean, id: string | null) => {
       outputChosen.current = true;
@@ -173,9 +203,13 @@ export const useAudioDevices = (): AudioDeviceControls => {
       const setting: OutputSetting = { enabled: enable, deviceId: id };
       savedOutput.current = setting;
       Storage.store(OUTPUT_STORAGE_KEY, setting);
-      await applyOutput(enable, id);
+      if (enable) {
+        await enableOutput(id);
+      } else {
+        await applyOutput(false, null);
+      }
     },
-    [applyOutput],
+    [applyOutput, enableOutput],
   );
 
   // ポインタ操作による有効化もユーザーの意思なので、setOutput 経由で保存する
@@ -195,7 +229,10 @@ export const useAudioDevices = (): AudioDeviceControls => {
   useEffect(() => {
     let cancelled = false;
     void Storage.load<OutputSetting>(OUTPUT_STORAGE_KEY).then(async (saved) => {
-      if (cancelled || saved == null) {
+      // 読み込みの完了前にユーザーが操作していた場合、その選択を復元で
+      // 上書きしない。outputChosen は setOutput の冒頭で同期的に立つため、
+      // この race を最も早く検出できる。下の 2 行より前に判定する必要がある
+      if (cancelled || outputChosen.current || saved == null) {
         return;
       }
       savedOutput.current = saved;
@@ -211,28 +248,14 @@ export const useAudioDevices = (): AudioDeviceControls => {
         void applyOutput(false, saved.deviceId);
         return;
       }
-      let ok = await applyOutput(true, saved.deviceId);
-      if (ok || cancelled || saved.deviceId == null) {
-        return;
-      }
-      // Firefox は、そのドキュメントで getUserMedia を呼ぶまで出力デバイスを
-      // 指名できず setSinkId が NotFoundError になる。既にマイクの権限がある
-      // 場合に限り、一瞬だけ解禁して再試行する (プロンプトは出さない)
-      if (await AudioDevices.unlockDeviceListIfGranted()) {
-        if (cancelled) {
-          return;
-        }
-        ok = await applyOutput(true, saved.deviceId);
-      }
-      // それでも駄目なら、デバイスが失われているとみなして既定のデバイスで鳴らす
-      if (!ok && !cancelled) {
-        await applyOutput(true, null);
-      }
+      // 自動再生ポリシーで拒否された場合はここで有効にできない。
+      // その場合は最初のポインタ操作 (initOutput) に任せる
+      await enableOutput(saved.deviceId);
     });
     return () => {
       cancelled = true;
     };
-  }, [applyOutput]);
+  }, [applyOutput, enableOutput]);
 
   const applyMIDI = useCallback(async (enable: boolean, id: string | null) => {
     setMIDIDeviceId(id);
