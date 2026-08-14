@@ -1,15 +1,14 @@
 import * as AudioController from "./AudioController.ts";
 import * as AudioDevices from "./AudioDevices.ts";
+import { enqueue } from "./Queue.ts";
+import { createStore } from "./Store.ts";
 import * as Storage from "./Storage.ts";
 
-// 出力の実行時の状態と、その永続化をまとめて持つ。
+// 出力の実行時の状態と、その永続化を持つ。
 //
 // これらは「オーディオグラフの状態」であってコンポーネントの状態ではないため、
 // React の外に置く。React 側に持たせると、コールバックから同期的に読むために
 // state の写しを ref で持つことになり、実体のない変数が増えていく。
-//
-// 状態の変更は必ず update を通し、購読者へ通知する。
-// React からは useSyncExternalStore で subscribe / getSnapshot を使って読む。
 
 const STORAGE_KEY = "output";
 
@@ -28,45 +27,14 @@ export type OutputState = {
   chosen: boolean;
 };
 
-let state: OutputState = { enabled: false, deviceId: null, chosen: false };
-const listeners = new Set<() => void>();
+const store = createStore<OutputState>({
+  enabled: false,
+  deviceId: null,
+  chosen: false,
+});
 
-const update = (next: Partial<OutputState>) => {
-  const merged = { ...state, ...next };
-  // useSyncExternalStore は参照の同一性で変化を判定するため、
-  // 内容が変わらない場合はオブジェクトを作り直さない
-  if (
-    merged.enabled === state.enabled &&
-    merged.deviceId === state.deviceId &&
-    merged.chosen === state.chosen
-  ) {
-    return;
-  }
-  state = merged;
-  listeners.forEach((listener) => listener());
-};
-
-export const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-};
-
-export const getSnapshot = (): OutputState => state;
-
-// --- コマンドの直列化 ------------------------------------------------------
-
-// 出力の操作はオーディオグラフという単一の資源を触る。並走させると
-// AudioController.setOutput が await を跨いで互いの接続を切り合い、
-// 戻り値も実際の状態と食い違うため、必ず前の操作の完了を待ってから実行する。
-let queue: Promise<void> = Promise.resolve();
-
-const enqueue = (task: () => Promise<void>) => {
-  queue = queue.then(task).catch((e) => console.error(e));
-};
-
-// --- 適用 ------------------------------------------------------------------
+export const subscribe = store.subscribe;
+export const getSnapshot = store.getSnapshot;
 
 const apply = async (
   enabled: boolean,
@@ -74,7 +42,7 @@ const apply = async (
 ): Promise<boolean> => {
   // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
   const ok = await AudioController.setOutput(enabled, deviceId ?? undefined);
-  update({ enabled: ok });
+  store.update({ enabled: ok });
   return ok;
 };
 
@@ -103,8 +71,6 @@ const enable = async (deviceId: string | null) => {
   await apply(true, null);
 };
 
-// --- 公開 API --------------------------------------------------------------
-
 /**
  * 出力を切り替える
  *
@@ -115,7 +81,7 @@ const enable = async (deviceId: string | null) => {
  */
 export const set = (enabled: boolean, deviceId: string | null) => {
   // 復元より先に操作されたことを同期的に記録する
-  update({ deviceId, chosen: true });
+  store.update({ deviceId, chosen: true });
   // 保存するのは要求値。自動再生ポリシーで拒否されても、
   // 次回の起動では改めて有効化を試みる
   Storage.store(STORAGE_KEY, { enabled, deviceId } satisfies Setting);
@@ -139,10 +105,11 @@ export const init = () => {
   // 実行中かどうかは見ない。復元はグラフの生成を含むため数百 ms かかることが
   // あり、その間のクリックを捨てると、自動再生を解禁する最初のジェスチャを
   // 無駄にしてしまう。連打は set が chosen を同期的に立てることで弾ける
-  if (state.chosen || state.enabled) {
+  const { chosen, enabled, deviceId } = store.getSnapshot();
+  if (chosen || enabled) {
     return;
   }
-  set(true, state.deviceId);
+  set(true, deviceId);
 };
 
 let restored = false;
@@ -155,19 +122,19 @@ export const restore = () => {
   restored = true;
   enqueue(async () => {
     // 復元より先にユーザーが操作していたら、その選択を尊重する
-    if (state.chosen) {
+    if (store.getSnapshot().chosen) {
       return;
     }
     const saved = await Storage.load<Setting>(STORAGE_KEY);
-    if (saved == null || state.chosen) {
+    if (saved == null || store.getSnapshot().chosen) {
       return;
     }
-    update({ deviceId: saved.deviceId });
+    store.update({ deviceId: saved.deviceId });
     if (!saved.enabled) {
       // 明示的に無効にされていたので、ポインタ操作でも有効化しない。
       // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
       // (setOutput(false) は ensureGraph したうえで出力を切断する)
-      update({ chosen: true });
+      store.update({ chosen: true });
       await apply(false, null);
       return;
     }
