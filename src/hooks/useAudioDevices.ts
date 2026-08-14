@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ButtonSelectorArgs, Option } from "../components/ButtonSelector";
 import * as AudioController from "../controller/AudioController";
 import * as AudioDevices from "../controller/AudioDevices";
 import * as MIDIDevices from "../controller/MIDIDevices";
+import * as OutputController from "../controller/OutputController";
 import * as Storage from "../controller/Storage";
 
 // JSX の spread では余剰プロパティチェックが働かないため、ButtonSelectorArgs と
@@ -37,17 +44,11 @@ export type AudioDeviceControls = {
   initOutput: () => void;
 };
 
-// 出力の設定は次回の起動時に復元する。
+// 設定は次回の起動時に復元する。
 // 入力 (マイク) は、開いただけで録音インジケータが点灯し驚かせるため復元しない。
-// 画面キャプチャは getDisplayMedia が仕様上ユーザー操作を必須とするため復元できない
-const OUTPUT_STORAGE_KEY = "output";
+// 画面キャプチャは getDisplayMedia が仕様上ユーザー操作を必須とするため復元できない。
+// 出力は状態が多く直列化も要るため OutputController が持つ
 const MIDI_STORAGE_KEY = "midi";
-
-type OutputSetting = {
-  // ユーザーが有効にしたかどうか。実際に有効化できたかではない
-  enabled: boolean;
-  deviceId: string | null;
-};
 
 type MIDISetting = {
   enabled: boolean;
@@ -101,14 +102,23 @@ export const useAudioDevices = (): AudioDeviceControls => {
   const [inputSource, setInputSource] = useState<"display" | "mic" | null>(
     null,
   );
-  const [outputEnable, setOutputEnable] = useState(false);
   const [midiEnable, setMIDIEnable] = useState(false);
 
   // 選択中のデバイス (null=既定のデバイス)。
   // ButtonSelector は制御コンポーネントなので、選択状態はここで保持する
   const [inputDeviceId, setInputDeviceId] = useState<string | null>(null);
-  const [outputDeviceId, setOutputDeviceId] = useState<string | null>(null);
   const [midiDeviceId, setMIDIDeviceId] = useState<string | null>(null);
+
+  // 出力は状態が多く直列化も必要なため、React の外 (OutputController) が持つ
+  const output = useSyncExternalStore(
+    OutputController.subscribe,
+    OutputController.getSnapshot,
+  );
+
+  // 起動時に前回の出力設定を復元する
+  useEffect(() => {
+    OutputController.restore();
+  }, []);
 
   const inputOptions = useDeviceOptions(listInputs, toAudioOption);
   const outputOptions = useDeviceOptions(listOutputs, toAudioOption);
@@ -130,133 +140,6 @@ export const useAudioDevices = (): AudioDeviceControls => {
     setInputSource(stream != null ? "mic" : null);
     await AudioController.setInput(stream);
   }, []);
-
-  // 出力の状態。いずれも同期的に読む必要があるため state ではなく ref で持つ
-  //   outputPending : 適用中か。実行中に再度呼ばれて二重に初期化するのを防ぐ
-  //   outputEnabled : 実際に有効になっているか
-  //   outputChosen  : ユーザーがこのセッションで選択したか。明示的に切った
-  //                   あとにポインタ操作で勝手に戻さないために見る
-  //   savedOutput   : ユーザーの希望する設定。保存する値であり、initOutput で
-  //                   のフォールバック時にデバイスを引き継ぐためにも使う
-  const outputPending = useRef(false);
-  const outputEnabled = useRef(false);
-  const outputChosen = useRef(false);
-  const savedOutput = useRef<OutputSetting | null>(null);
-
-  // ここでは選択状態 (outputDeviceId) を更新しない。既定デバイスへ再試行した
-  // ときにユーザーが選んだデバイスを上書きしてしまい、その後のトグル操作で
-  // 保存まで消えてしまうため。選択状態は「適用中」ではなく「希望」を表す
-  const applyOutput = useCallback(
-    async (enable: boolean, id: string | null): Promise<boolean> => {
-      outputPending.current = true;
-      try {
-        // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
-        const enabled = await AudioController.setOutput(
-          enable,
-          id ?? undefined,
-        );
-        outputEnabled.current = enabled;
-        setOutputEnable(enabled);
-        return enabled;
-      } finally {
-        outputPending.current = false;
-      }
-    },
-    [],
-  );
-
-  /**
-   * 出力を有効にする
-   *
-   * 指定したデバイスを使えない場合は、解禁を試したうえで既定のデバイスに
-   * 落とす。ここで既定に落とさないと、保存していたデバイスが使えない環境で
-   * 復元もポインタ操作も失敗し続け、音が出せなくなる
-   */
-  const enableOutput = useCallback(
-    async (id: string | null): Promise<boolean> => {
-      if (await applyOutput(true, id)) {
-        return true;
-      }
-      if (id == null) {
-        return false;
-      }
-      // Firefox は、そのドキュメントで getUserMedia を呼ぶまで出力デバイスを
-      // 指名できず setSinkId が NotFoundError になる。Chrome も権限が無いと
-      // SecurityError になる。既に権限がある場合に限り解禁して再試行する
-      // (起動時にプロンプトを出さないため granted の場合のみ)
-      if (await AudioDevices.unlockDeviceListIfGranted()) {
-        if (await applyOutput(true, id)) {
-          return true;
-        }
-      }
-      // それでも駄目なら、デバイスが使えないとみなして既定のデバイスで鳴らす
-      return await applyOutput(true, null);
-    },
-    [applyOutput],
-  );
-
-  const setOutput = useCallback(
-    async (enable: boolean, id: string | null) => {
-      outputChosen.current = true;
-      setOutputDeviceId(id);
-      // 保存するのは要求値。自動再生ポリシーで拒否されても、
-      // 次回の起動では改めて有効化を試みる
-      const setting: OutputSetting = { enabled: enable, deviceId: id };
-      savedOutput.current = setting;
-      Storage.store(OUTPUT_STORAGE_KEY, setting);
-      if (enable) {
-        await enableOutput(id);
-      } else {
-        await applyOutput(false, null);
-      }
-    },
-    [applyOutput, enableOutput],
-  );
-
-  // ポインタ操作による有効化もユーザーの意思なので、setOutput 経由で保存する
-  const initOutput = useCallback(() => {
-    if (
-      outputChosen.current ||
-      outputEnabled.current ||
-      outputPending.current
-    ) {
-      return;
-    }
-    void setOutput(true, savedOutput.current?.deviceId ?? null);
-  }, [setOutput]);
-
-  // 起動時に前回の出力設定を復元する。
-  // 自動再生ポリシーで拒否された場合は、最初のポインタ操作 (initOutput) に任せる
-  useEffect(() => {
-    let cancelled = false;
-    void Storage.load<OutputSetting>(OUTPUT_STORAGE_KEY).then(async (saved) => {
-      // 読み込みの完了前にユーザーが操作していた場合、その選択を復元で
-      // 上書きしない。outputChosen は setOutput の冒頭で同期的に立つため、
-      // この race を最も早く検出できる。下の 2 行より前に判定する必要がある
-      if (cancelled || outputChosen.current || saved == null) {
-        return;
-      }
-      savedOutput.current = saved;
-      setOutputDeviceId(saved.deviceId);
-      if (outputEnabled.current || outputPending.current) {
-        return;
-      }
-      if (!saved.enabled) {
-        // 明示的に無効にされていたので、ポインタ操作でも有効化しない。
-        // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
-        // (setOutput(false) は ensureGraph したうえで出力を切断する)
-        outputChosen.current = true;
-        void applyOutput(false, null);
-        return;
-      }
-      // 自動再生ポリシーで拒否された場合はここで有効にできない。
-      // その場合は最初のポインタ操作 (initOutput) に任せる
-      await enableOutput(saved.deviceId);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [applyOutput, enableOutput]);
 
   const applyMIDI = useCallback(async (enable: boolean, id: string | null) => {
     setMIDIDeviceId(id);
@@ -307,9 +190,9 @@ export const useAudioDevices = (): AudioDeviceControls => {
     },
     output: {
       ...outputOptions,
-      enable: outputEnable,
-      selected: outputDeviceId,
-      onChange: setOutput,
+      enable: output.enabled,
+      selected: output.deviceId,
+      onChange: OutputController.set,
     },
     midi: {
       ...midiOptions,
@@ -317,6 +200,6 @@ export const useAudioDevices = (): AudioDeviceControls => {
       selected: midiDeviceId,
       onChange: setMIDI,
     },
-    initOutput,
+    initOutput: OutputController.init,
   };
 };
