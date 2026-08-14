@@ -36,12 +36,21 @@ const store = createStore<OutputState>({
 export const subscribe = store.subscribe;
 export const getSnapshot = store.getSnapshot;
 
+// AudioContext の再開はユーザー操作を受けてからでないと完了しないため、
+// 操作由来の呼び出しかどうかを経路ごとに渡す (詳細は AudioController.setOutput)
+type Origin = { byUserGesture: boolean };
+
 const apply = async (
   enabled: boolean,
   deviceId: string | null,
+  { byUserGesture }: Origin,
 ): Promise<boolean> => {
   // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
-  const ok = await AudioController.setOutput(enabled, deviceId ?? undefined);
+  const ok = await AudioController.setOutput(
+    enabled,
+    deviceId ?? undefined,
+    byUserGesture,
+  );
   store.update({ enabled: ok });
   return ok;
 };
@@ -52,8 +61,8 @@ const apply = async (
  * 既定に落とさないと、保存していたデバイスが使えない環境で復元もポインタ操作も
  * 失敗し続け、音が出せなくなる。
  */
-const enable = async (deviceId: string | null) => {
-  if (await apply(true, deviceId)) {
+const enable = async (deviceId: string | null, origin: Origin) => {
+  if (await apply(true, deviceId, origin)) {
     return;
   }
   if (deviceId == null) {
@@ -64,11 +73,11 @@ const enable = async (deviceId: string | null) => {
   // SecurityError になる。既に権限がある場合に限り解禁して再試行する
   // (起動時にプロンプトを出さないため granted の場合のみ)
   if (await AudioDevices.unlockDeviceListIfGranted()) {
-    if (await apply(true, deviceId)) {
+    if (await apply(true, deviceId, origin)) {
       return;
     }
   }
-  await apply(true, null);
+  await apply(true, null, origin);
 };
 
 /**
@@ -85,11 +94,12 @@ export const set = (enabled: boolean, deviceId: string | null) => {
   // 保存するのは要求値。自動再生ポリシーで拒否されても、
   // 次回の起動では改めて有効化を試みる
   Storage.store(STORAGE_KEY, { enabled, deviceId } satisfies Setting);
+  // set はボタンの操作か init (最初のポインタ操作) からしか呼ばれない
   enqueue(async () => {
     if (enabled) {
-      await enable(deviceId);
+      await enable(deviceId, { byUserGesture: true });
     } else {
-      await apply(false, null);
+      await apply(false, null, { byUserGesture: true });
     }
   });
 };
@@ -135,11 +145,11 @@ export const restore = () => {
       // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
       // (setOutput(false) は ensureGraph したうえで出力を切断する)
       store.update({ chosen: true });
-      await apply(false, null);
+      await apply(false, null, { byUserGesture: false });
       return;
     }
     // 自動再生ポリシーで拒否された場合はここで有効にできない。
     // その場合は最初のポインタ操作 (init) に任せる
-    await enable(saved.deviceId);
+    await enable(saved.deviceId, { byUserGesture: false });
   });
 };

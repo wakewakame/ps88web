@@ -137,11 +137,13 @@ export const setInput = async (stream: MediaStream | null) => {
  *
  * @param enable - true=出力有効化, false=出力無効化
  * @param deviceId - スピーカーのデバイスID (省略時はデフォルトのスピーカーを使用する)
+ * @param byUserGesture - ユーザー操作を受けての呼び出しか (resume の可否を分ける)
  * @returns 実際に出力が有効になったか
  */
 export const setOutput = async (
   enable: boolean,
   deviceId?: string,
+  byUserGesture = false,
 ): Promise<boolean> => {
   const { ctx, proc, audio } = await ensureGraph();
   proc.disconnect();
@@ -153,6 +155,17 @@ export const setOutput = async (
   proc.connect(dst);
   audio.srcObject = dst.stream;
   try {
+    // AudioContext は自動再生ポリシーで suspended のまま開始することがあり、
+    // また Chrome では実行中に suspended へ落ちることもある。この状態では
+    // process() が呼ばれず、GUI だけが動いて無音になるため、操作のたびに戻す。
+    //
+    // ただしユーザー操作を受けずに resume を呼ぶと、Chrome では promise が
+    // 解決も拒否もされないまま残る。呼び出し元は操作を直列化しているため、
+    // ここで返らないと以降の入出力の操作がすべて実行されなくなる。
+    // 操作前に戻せなくても、最初のポインタ操作で改めて有効化が試みられる
+    if (byUserGesture && ctx.state === "suspended") {
+      await ctx.resume();
+    }
     if (deviceId != undefined) {
       // setSinkId は一部のブラウザで未実装のため、存在する場合のみ呼び出す
       await audio.setSinkId?.(deviceId);
