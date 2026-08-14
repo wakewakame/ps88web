@@ -97,6 +97,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
 
   // 起動時に前回の設定を復元する
   useEffect(() => {
+    InputController.restore();
     OutputController.restore();
     MIDIController.restore();
   }, []);

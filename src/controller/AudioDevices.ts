@@ -14,6 +14,15 @@ const getPermissionState = async (): Promise<PermissionState | undefined> => {
   }
 };
 
+/**
+ * マイクの権限が既に許可されているか
+ *
+ * 起動時の設定復元の可否を判断するために使う。未許可の状態で getUserMedia を
+ * 呼ぶと、ページを開いただけで許可を求めることになるため。
+ */
+export const isPermissionGranted = async (): Promise<boolean> =>
+  (await getPermissionState()) === "granted";
+
 /** マイクを一瞬だけ取得して停止する */
 const openMicrophoneOnce = async (): Promise<boolean> => {
   try {

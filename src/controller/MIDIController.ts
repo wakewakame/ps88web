@@ -6,8 +6,8 @@ import * as Storage from "./Storage.ts";
 
 // MIDI の実行時の状態と、その永続化を持つ。
 //
-// 出力と違い、requestMIDIAccess はユーザー操作を必要とせず権限も既定で
-// granted のため、復元が拒否されることは無い。
+// requestMIDIAccess はユーザー操作を必要としないため、権限さえあれば起動時に
+// 復元できる。ただし権限が未許可の場合はプロンプトが出るため復元しない。
 
 const STORAGE_KEY = "midi";
 
@@ -72,6 +72,12 @@ export const restore = () => {
       return;
     }
     store.update({ deviceId: saved.deviceId });
+    // 権限が未許可のまま requestMIDIAccess を呼ぶと、ページを開いただけで
+    // 許可を求めることになる。Firefox のように権限を記憶しないブラウザでは、
+    // 一度有効にしただけで毎回プロンプトが出てしまう
+    if (!(await MIDIDevices.isPermissionGranted())) {
+      return;
+    }
     // 保存していたデバイスが見つからない場合は無効のままにする。
     // 出力と違い、別の機器に勝手に繋ぐと想定外の入力になるため
     await apply(true, saved.deviceId);
