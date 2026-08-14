@@ -6,7 +6,7 @@ export type ButtonSelectorArgs = {
   icon: string;
   enable: boolean;
   options?: Option[];
-  /** 選択中のデバイスID (null=既定のデバイス)。選択状態は呼び出し側が保持する */
+  /** 選択中のアイテムのID (null=未選択)。選択状態は呼び出し側が保持する */
   selected?: string | null;
   disabled?: boolean;
   onOpen?: () => void;

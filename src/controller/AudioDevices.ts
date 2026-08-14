@@ -1,12 +1,7 @@
 /**
- * デバイスの列挙を解禁する
+ * マイクの権限の状態を問い合わせる
  *
- * enumerateDevices は権限が無いとデバイスID もラベルも空文字で返す。さらに
- * Firefox では、権限が granted であっても、そのドキュメントで実際に
- * getUserMedia を呼ぶまで出力デバイスを一切列挙しない。そのため権限の状態に
- * 関わらず一度ストリームを取得し、列挙できる状態にしてから即座に停止する。
- *
- * @returns 解禁できたか
+ * @returns 権限の状態 (問い合わせできなかった場合は undefined)
  */
 const getPermissionState = async (): Promise<PermissionState | undefined> => {
   try {
@@ -19,10 +14,8 @@ const getPermissionState = async (): Promise<PermissionState | undefined> => {
   }
 };
 
-const unlockDeviceList = async (): Promise<boolean> => {
-  if ((await getPermissionState()) === "denied") {
-    return false;
-  }
+/** マイクを一瞬だけ取得して停止する */
+const openMicrophoneOnce = async (): Promise<boolean> => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -34,6 +27,25 @@ const unlockDeviceList = async (): Promise<boolean> => {
     console.warn(e);
     return false;
   }
+};
+
+/**
+ * デバイスの列挙を解禁する
+ *
+ * enumerateDevices は権限が無いとデバイスID もラベルも空文字で返す。さらに
+ * Firefox では、権限が granted であっても、そのドキュメントで実際に
+ * getUserMedia を呼ぶまで出力デバイスを一切列挙しない。そのため権限の状態に
+ * 関わらず一度ストリームを取得し、列挙できる状態にしてから即座に停止する。
+ *
+ * 権限が未許可の場合はプロンプトが出る。
+ *
+ * @returns 解禁できたか
+ */
+const unlockDeviceList = async (): Promise<boolean> => {
+  if ((await getPermissionState()) === "denied") {
+    return false;
+  }
+  return await openMicrophoneOnce();
 };
 
 /**
@@ -49,7 +61,8 @@ export const unlockDeviceListIfGranted = async (): Promise<boolean> => {
   if ((await getPermissionState()) !== "granted") {
     return false;
   }
-  return await unlockDeviceList();
+  // 権限は確認済みなので unlockDeviceList を経由せず直接取得する
+  return await openMicrophoneOnce();
 };
 
 /**

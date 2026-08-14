@@ -131,20 +131,25 @@ export const useAudioDevices = (): AudioDeviceControls => {
     await AudioController.setInput(stream);
   }, []);
 
-  // 実行中に再度呼ばれても二重に初期化しないよう、state ではなく ref で持つ
+  // 出力の状態。いずれも同期的に読む必要があるため state ではなく ref で持つ
+  //   outputPending : 適用中か。実行中に再度呼ばれて二重に初期化するのを防ぐ
+  //   outputEnabled : 実際に有効になっているか
+  //   outputChosen  : ユーザーがこのセッションで選択したか。明示的に切った
+  //                   あとにポインタ操作で勝手に戻さないために見る
+  //   savedOutput   : ユーザーの希望する設定。保存する値であり、initOutput で
+  //                   のフォールバック時にデバイスを引き継ぐためにも使う
   const outputPending = useRef(false);
-  // 有効かどうかを初期化時のクロージャからも読めるようにする
   const outputEnabled = useRef(false);
-  // 復元した設定。initOutput でのフォールバック時にデバイスを引き継ぐ
+  const outputChosen = useRef(false);
   const savedOutput = useRef<OutputSetting | null>(null);
 
+  // ここでは選択状態 (outputDeviceId) を更新しない。既定デバイスへ再試行した
+  // ときにユーザーが選んだデバイスを上書きしてしまい、その後のトグル操作で
+  // 保存まで消えてしまうため。選択状態は「適用中」ではなく「希望」を表す
   const applyOutput = useCallback(
     async (enable: boolean, id: string | null): Promise<boolean> => {
       outputPending.current = true;
       try {
-        // ここでは選択状態を更新しない。既定デバイスへ再試行したときに
-        // ユーザーが選んだデバイスを上書きしてしまい、その後のトグル操作で
-        // 保存まで消えてしまうため (選択状態は「適用中」ではなく「希望」を表す)
         // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
         const enabled = await AudioController.setOutput(
           enable,
@@ -159,10 +164,6 @@ export const useAudioDevices = (): AudioDeviceControls => {
     },
     [],
   );
-
-  // ユーザーがこのセッションで出力を選択したか。
-  // 明示的に切ったあとにポインタ操作で勝手に戻さないために見る
-  const outputChosen = useRef(false);
 
   /**
    * 出力を有効にする
@@ -245,7 +246,7 @@ export const useAudioDevices = (): AudioDeviceControls => {
         // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
         // (setOutput(false) は ensureGraph したうえで出力を切断する)
         outputChosen.current = true;
-        void applyOutput(false, saved.deviceId);
+        void applyOutput(false, null);
         return;
       }
       // 自動再生ポリシーで拒否された場合はここで有効にできない。
@@ -296,21 +297,23 @@ export const useAudioDevices = (): AudioDeviceControls => {
 
   return {
     display: { enable: inputSource === "display", onChange: setDisplay },
+    // 展開は先頭に置く。末尾だと、将来 useDeviceOptions が同名のキーを
+    // 返すようになったときに、下で明示した値が黙って上書きされるため
     input: {
-      enable: inputSource === "mic",
       ...inputOptions,
+      enable: inputSource === "mic",
       selected: inputDeviceId,
       onChange: setInput,
     },
     output: {
-      enable: outputEnable,
       ...outputOptions,
+      enable: outputEnable,
       selected: outputDeviceId,
       onChange: setOutput,
     },
     midi: {
-      enable: midiEnable,
       ...midiOptions,
+      enable: midiEnable,
       selected: midiDeviceId,
       onChange: setMIDI,
     },
