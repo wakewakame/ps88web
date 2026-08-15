@@ -104,6 +104,17 @@ export const set = (enabled: boolean, deviceId: string | null) => {
   });
 };
 
+// 復元の進み具合。init は保存された設定を読み終えるまで有効化の可否を
+// 判断できないため、両者でこれを共有する
+const restoring = {
+  /** restore を一度だけ実行するためのフラグ */
+  started: false,
+  /** 保存された設定を読み終えたか */
+  loaded: false,
+  /** 読み終える前に来たポインタ操作。捨てずに、読み終えてから反映する */
+  gesture: false,
+};
+
 /**
  * 出力がまだ有効でなければ有効にする
  *
@@ -112,44 +123,60 @@ export const set = (enabled: boolean, deviceId: string | null) => {
  * 何もしない。
  */
 export const init = () => {
-  // 実行中かどうかは見ない。復元はグラフの生成を含むため数百 ms かかることが
-  // あり、その間のクリックを捨てると、自動再生を解禁する最初のジェスチャを
-  // 無駄にしてしまう。連打は set が chosen を同期的に立てることで弾ける
   const { chosen, enabled, deviceId } = store.getSnapshot();
   if (chosen || enabled) {
+    return;
+  }
+  // 保存された設定を読む前に set を呼ぶと、要求値としてその時点の状態
+  // (deviceId は初期値の null) を保存してしまい、選んでいたデバイスと
+  // 「明示的に無効」の記録を壊す。復元はマイクの権限プロンプトを挟むと
+  // 数秒かかることがあり、この窓は短くない。
+  //
+  // かといって操作を捨てると、自動再生を解禁する最初のジェスチャを
+  // 無駄にしてしまう。記録だけして、設定が分かってから使う
+  if (!restoring.loaded) {
+    restoring.gesture = true;
     return;
   }
   set(true, deviceId);
 };
 
-let restored = false;
-
 /** 保存された設定を復元する (起動時に一度だけ呼ぶ) */
 export const restore = () => {
-  if (restored) {
+  if (restoring.started) {
     return;
   }
-  restored = true;
+  restoring.started = true;
   enqueue(async () => {
-    // 復元より先にユーザーが操作していたら、その選択を尊重する
+    // 復元より先にユーザーが明示的に操作していたら、その選択を尊重する
     if (store.getSnapshot().chosen) {
+      restoring.loaded = true;
       return;
     }
     const saved = await Storage.load<Setting>(STORAGE_KEY);
-    if (saved == null || store.getSnapshot().chosen) {
+    restoring.loaded = true;
+    if (store.getSnapshot().chosen) {
+      return;
+    }
+    if (saved == null) {
+      // 保存が無い。読む前のポインタ操作は、初回のユーザーの選択として扱う
+      if (restoring.gesture) {
+        set(true, null);
+      }
       return;
     }
     store.update({ deviceId: saved.deviceId });
     if (!saved.enabled) {
-      // 明示的に無効にされていたので、ポインタ操作でも有効化しない。
+      // 明示的に無効にされていたので、ポインタ操作があっても有効化しない。
       // ただし worklet は動かしたいので、出力を無効のままグラフだけ生成する
       // (setOutput(false) は ensureGraph したうえで出力を切断する)
       store.update({ chosen: true });
       await apply(false, null, { byUserGesture: false });
       return;
     }
-    // 自動再生ポリシーで拒否された場合はここで有効にできない。
-    // その場合は最初のポインタ操作 (init) に任せる
-    await enable(saved.deviceId, { byUserGesture: false });
+    // 読む前にポインタ操作があったなら、それを受けての有効化として扱う。
+    // 操作が無ければ自動再生ポリシーで拒否され得るが、その場合は
+    // 次のポインタ操作 (init) に任せる
+    await enable(saved.deviceId, { byUserGesture: restoring.gesture });
   });
 };
