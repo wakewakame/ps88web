@@ -42,8 +42,10 @@ const applyMicrophone = async (enabled: boolean, deviceId: string | null) => {
   const stream = enabled
     ? await AudioDevices.getInputStream(deviceId ?? undefined)
     : null;
-  store.update({ source: stream != null ? "mic" : null });
+  // 反映は接続してから。先に更新すると、setInput が投げた場合に
+  // 有効表示のまま実体が無い状態が残る
   await AudioController.setInput(stream);
+  store.update({ source: stream != null ? "mic" : null });
 };
 
 /**
@@ -76,8 +78,8 @@ export const setDisplay = (enabled: boolean) => {
     const stream = enabled
       ? await AudioDevices.getInputStreamFromDisplay()
       : null;
-    store.update({ source: stream != null ? "display" : null });
     await AudioController.setInput(stream);
+    store.update({ source: stream != null ? "display" : null });
   });
 };
 

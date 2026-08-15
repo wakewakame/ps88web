@@ -38,8 +38,10 @@ const apply = async (enabled: boolean, deviceId: string | null) => {
   const device = enabled
     ? await MIDIDevices.getDevice(deviceId ?? undefined)
     : null;
-  store.update({ enabled: device != null });
+  // 反映は接続してから。先に更新すると、setMIDI が投げた場合に
+  // 有効表示のまま実体が無い状態が残る
   await AudioController.setMIDI(device);
+  store.update({ enabled: device != null });
 };
 
 /**
