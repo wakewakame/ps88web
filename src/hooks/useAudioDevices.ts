@@ -1,8 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ButtonSelectorArgs, Option } from "../components/ButtonSelector";
-import * as AudioController from "../controller/AudioController";
 import * as AudioDevices from "../controller/AudioDevices";
+import * as InputController from "../controller/InputController";
+import * as MIDIController from "../controller/MIDIController";
 import * as MIDIDevices from "../controller/MIDIDevices";
+import * as OutputController from "../controller/OutputController";
 
 // JSX の spread では余剰プロパティチェックが働かないため、ButtonSelectorArgs と
 // 同じ形の型を別に定義するとフィールド名がずれても型エラーにならない。
@@ -18,7 +20,7 @@ export type DeviceToggle = Required<Pick<ButtonSelectorArgs, "enable">> & {
 export type DeviceSelector = Required<
   Pick<
     ButtonSelectorArgs,
-    "enable" | "options" | "disabled" | "onOpen" | "onChange"
+    "enable" | "options" | "disabled" | "selected" | "onOpen" | "onChange"
   >
 >;
 
@@ -28,10 +30,10 @@ export type AudioDeviceControls = {
   output: DeviceSelector;
   midi: DeviceSelector;
   /**
-   * 出力をまだ初期化していなければ初期化する
+   * 出力がまだ有効でなければ有効にする
    *
-   * AudioContext はユーザー操作を受けてからでないと音が出ないため、
-   * 最初のポインタ操作でこれを呼び出す。
+   * 自動再生ポリシーで起動時の復元が拒否されることがあるため、
+   * 最初のポインタ操作でこれを呼び出して確実に有効化する。
    */
   initOutput: () => void;
 };
@@ -79,62 +81,56 @@ const useDeviceOptions = <T>(
  * そのまま ButtonSelector に spread して渡せる形になっている。
  */
 export const useAudioDevices = (): AudioDeviceControls => {
-  // 画面キャプチャとマイクは同時に使えないため、有効な入力は高々ひとつ
-  const [inputSource, setInputSource] = useState<"display" | "mic" | null>(
-    null,
+  // 実行時の状態はいずれも React の外 (各コントローラ) が持つ
+  const input = useSyncExternalStore(
+    InputController.subscribe,
+    InputController.getSnapshot,
   );
-  const [outputEnable, setOutputEnable] = useState(false);
-  const [midiEnable, setMIDIEnable] = useState(false);
+  const output = useSyncExternalStore(
+    OutputController.subscribe,
+    OutputController.getSnapshot,
+  );
+  const midi = useSyncExternalStore(
+    MIDIController.subscribe,
+    MIDIController.getSnapshot,
+  );
+
+  // 起動時に前回の設定を復元する
+  useEffect(() => {
+    InputController.restore();
+    OutputController.restore();
+    MIDIController.restore();
+  }, []);
 
   const inputOptions = useDeviceOptions(listInputs, toAudioOption);
   const outputOptions = useDeviceOptions(listOutputs, toAudioOption);
   const midiOptions = useDeviceOptions(listMIDIs, toMIDIOption);
 
-  const setDisplay = useCallback(async (enable: boolean) => {
-    const stream = enable
-      ? await AudioDevices.getInputStreamFromDisplay()
-      : null;
-    setInputSource(stream != null ? "display" : null);
-    await AudioController.setInput(stream);
-  }, []);
-
-  const setInput = useCallback(async (enable: boolean, id: string | null) => {
-    const stream = enable
-      ? await AudioDevices.getInputStream(id ?? undefined)
-      : null;
-    setInputSource(stream != null ? "mic" : null);
-    await AudioController.setInput(stream);
-  }, []);
-
-  // 初期化中に再度呼ばれても二重に初期化しないよう、state ではなく ref で持つ
-  const outputInitialized = useRef(false);
-  const setOutput = useCallback(async (enable: boolean, id: string | null) => {
-    outputInitialized.current = true;
-    // 再生に失敗することがあるため、要求値ではなく実際の結果を反映する
-    setOutputEnable(await AudioController.setOutput(enable, id ?? undefined));
-  }, []);
-  const initOutput = useCallback(() => {
-    if (outputInitialized.current) {
-      return;
-    }
-    setOutput(true, null);
-  }, [setOutput]);
-
-  const setMIDI = useCallback(async (enable: boolean, id: string | null) => {
-    const midi = enable ? await MIDIDevices.getDevice(id ?? undefined) : null;
-    setMIDIEnable(midi != null);
-    await AudioController.setMIDI(midi);
-  }, []);
-
   return {
-    display: { enable: inputSource === "display", onChange: setDisplay },
-    input: {
-      enable: inputSource === "mic",
-      ...inputOptions,
-      onChange: setInput,
+    display: {
+      enable: input.source === "display",
+      onChange: InputController.setDisplay,
     },
-    output: { enable: outputEnable, ...outputOptions, onChange: setOutput },
-    midi: { enable: midiEnable, ...midiOptions, onChange: setMIDI },
-    initOutput,
+    // 展開は先頭に置く。末尾だと、将来 useDeviceOptions が同名のキーを
+    // 返すようになったときに、下で明示した値が黙って上書きされるため
+    input: {
+      ...inputOptions,
+      enable: input.source === "mic",
+      selected: input.deviceId,
+      onChange: InputController.setMicrophone,
+    },
+    output: {
+      ...outputOptions,
+      enable: output.enabled,
+      selected: output.deviceId,
+      onChange: OutputController.set,
+    },
+    midi: {
+      ...midiOptions,
+      enable: midi.enabled,
+      selected: midi.deviceId,
+      onChange: MIDIController.set,
+    },
+    initOutput: OutputController.init,
   };
 };

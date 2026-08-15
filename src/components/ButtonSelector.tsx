@@ -6,18 +6,18 @@ export type ButtonSelectorArgs = {
   icon: string;
   enable: boolean;
   options?: Option[];
-  selected?: string;
+  /** 選択中のアイテムのID (null=未選択)。選択状態は呼び出し側が保持する */
+  selected?: string | null;
   disabled?: boolean;
   onOpen?: () => void;
   onChange?: (enable: boolean, id: string | null) => void;
 };
 
 export const ButtonSelector = (args: ButtonSelectorArgs) => {
-  const [selectedId, setSelectedId] = useState(args.selected ?? null);
   const [open, setOpen] = useState(false);
 
   const onEnableClick = () => {
-    args.onChange?.(!args.enable, selectedId);
+    args.onChange?.(!args.enable, args.selected ?? null);
   };
 
   const onSelectorClick = () => {
@@ -29,7 +29,6 @@ export const ButtonSelector = (args: ButtonSelectorArgs) => {
 
   const onSelected = (id: string) => {
     args.onChange?.(args.enable, id);
-    setSelectedId(id);
   };
 
   // タッチデバイスでは mouseleave が発火しないため、外側のタップでも閉じる
@@ -98,7 +97,7 @@ export const ButtonSelector = (args: ButtonSelectorArgs) => {
             <Options
               options={args.options}
               open={open}
-              selected={selectedId}
+              selected={args.selected ?? null}
               onSelected={onSelected}
             />
           </div>

@@ -1,4 +1,23 @@
 /**
+ * MIDI の権限が既に許可されているか
+ *
+ * 起動時の設定復元の可否を判断するために使う。requestMIDIAccess はユーザー操作
+ * を必要としないが、権限が未許可だとページを開いただけで許可を求めることに
+ * なるため。権限を問い合わせられない場合は false とする。
+ */
+export const isPermissionGranted = async (): Promise<boolean> => {
+  try {
+    return (
+      (await navigator.permissions.query({ name: "midi" })).state === "granted"
+    );
+  } catch (e) {
+    // name: "midi" に対応していないブラウザでは reject する
+    console.warn(e);
+    return false;
+  }
+};
+
+/**
  * MIDI デバイス一覧を取得
  *
  * @returns MIDI デバイス一覧
