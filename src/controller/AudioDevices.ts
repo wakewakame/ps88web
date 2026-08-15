@@ -1,18 +1,6 @@
-/**
- * マイクの権限の状態を問い合わせる
- *
- * @returns 権限の状態 (問い合わせできなかった場合は undefined)
- */
-const getPermissionState = async (): Promise<PermissionState | undefined> => {
-  try {
-    return (await navigator.permissions.query({ name: "microphone" })).state;
-  } catch (e) {
-    // name: "microphone" に対応していないブラウザでは reject する。
-    // 状態が分からないだけなので undefined を返す
-    console.warn(e);
-    return undefined;
-  }
-};
+import * as Permission from "./Permission.ts";
+
+const getPermissionState = () => Permission.getState("microphone");
 
 /**
  * マイクの権限が既に許可されているか
@@ -22,6 +10,22 @@ const getPermissionState = async (): Promise<PermissionState | undefined> => {
  */
 export const isPermissionGranted = async (): Promise<boolean> =>
   (await getPermissionState()) === "granted";
+
+/**
+ * マイクの権限が拒否されているかを購読する
+ *
+ * 拒否されている間は getUserMedia が必ず失敗するため、ボタンを操作不可に
+ * する判断に使う。状態が分からない場合は拒否されていないものとして扱う
+ * (押して試せる方が、押せないより回復の余地がある)。
+ *
+ * @returns 購読を解除する関数
+ */
+export const subscribePermissionDenied = (
+  listener: (denied: boolean) => void,
+): (() => void) =>
+  Permission.subscribeState("microphone", (state) =>
+    listener(state === "denied"),
+  );
 
 /** マイクを一瞬だけ取得して停止する */
 const openMicrophoneOnce = async (): Promise<boolean> => {

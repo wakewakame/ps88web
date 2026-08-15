@@ -1,3 +1,5 @@
+import * as Permission from "./Permission.ts";
+
 /**
  * MIDI の権限が既に許可されているか
  *
@@ -5,17 +7,21 @@
  * を必要としないが、権限が未許可だとページを開いただけで許可を求めることに
  * なるため。権限を問い合わせられない場合は false とする。
  */
-export const isPermissionGranted = async (): Promise<boolean> => {
-  try {
-    return (
-      (await navigator.permissions.query({ name: "midi" })).state === "granted"
-    );
-  } catch (e) {
-    // name: "midi" に対応していないブラウザでは reject する
-    console.warn(e);
-    return false;
-  }
-};
+export const isPermissionGranted = async (): Promise<boolean> =>
+  (await Permission.getState("midi")) === "granted";
+
+/**
+ * MIDI の権限が拒否されているかを購読する
+ *
+ * 拒否されている間は requestMIDIAccess が必ず失敗するため、ボタンを操作不可に
+ * する判断に使う。状態が分からない場合は拒否されていないものとして扱う。
+ *
+ * @returns 購読を解除する関数
+ */
+export const subscribePermissionDenied = (
+  listener: (denied: boolean) => void,
+): (() => void) =>
+  Permission.subscribeState("midi", (state) => listener(state === "denied"));
 
 /**
  * MIDI デバイス一覧を取得

@@ -12,15 +12,15 @@ import * as OutputController from "../controller/OutputController";
 // そのため以下の型は ButtonSelectorArgs から導出し、定義をひとつに保つ。
 
 /** ButtonSelector に渡す、オン/オフのみを持つデバイスの props */
-export type DeviceToggle = Required<Pick<ButtonSelectorArgs, "enable">> & {
-  onChange: (enable: boolean) => void;
+export type DeviceToggle = Required<Pick<ButtonSelectorArgs, "pressed">> & {
+  onChange: (pressed: boolean) => void;
 };
 
 /** ButtonSelector に渡す、デバイス一覧を選択できるデバイスの props */
 export type DeviceSelector = Required<
   Pick<
     ButtonSelectorArgs,
-    "enable" | "options" | "disabled" | "selected" | "onOpen" | "onChange"
+    "pressed" | "options" | "disabled" | "selected" | "onOpen" | "onChange"
   >
 >;
 
@@ -54,24 +54,38 @@ const toMIDIOption = (device: MIDIInput): Option => ({
 /**
  * デバイス一覧の取得
  *
- * list が null を返した場合は権限が無いなどで取得できなかったことを表し、
- * ButtonSelector を disabled にする。
+ * 取得できなかった場合は空の一覧として扱う。ボタンは操作可能なままにする。
+ * 一覧を出せないことと、そのデバイスを使えないことは別だからで、たとえば
+ * スピーカーは一覧を列挙できない環境でも既定のデバイスで鳴らせる
  */
 const useDeviceOptions = <T>(
   list: () => Promise<T[] | null>,
   toOption: (device: T) => Option,
 ) => {
-  const [options, setOptions] = useState<Option[] | null>([]);
+  const [options, setOptions] = useState<Option[]>([]);
   const onOpen = useCallback(() => {
     list()
-      .then((devices) => setOptions(devices?.map(toOption) ?? null))
-      // 失敗を握り潰すと一覧が空のまま無反応に見えるため、disabled にして示す
+      .then((devices) => setOptions(devices?.map(toOption) ?? []))
       .catch((e) => {
         console.error(e);
-        setOptions(null);
+        setOptions([]);
       });
   }, [list, toOption]);
-  return { options: options ?? [], disabled: options == null, onOpen };
+  return { options, onOpen };
+};
+
+/**
+ * 権限が拒否されているかの購読
+ *
+ * 拒否されている間は有効化できないため、ボタンを操作不可にする。権限は
+ * ブラウザの設定からいつでも変更できるので、一度の問い合わせでは済まさない
+ */
+const usePermissionDenied = (
+  subscribe: (listener: (denied: boolean) => void) => () => void,
+) => {
+  const [denied, setDenied] = useState(false);
+  useEffect(() => subscribe(setDenied), [subscribe]);
+  return denied;
 };
 
 /**
@@ -106,28 +120,37 @@ export const useAudioDevices = (): AudioDeviceControls => {
   const outputOptions = useDeviceOptions(listOutputs, toAudioOption);
   const midiOptions = useDeviceOptions(listMIDIs, toMIDIOption);
 
+  const inputDenied = usePermissionDenied(
+    AudioDevices.subscribePermissionDenied,
+  );
+  const midiDenied = usePermissionDenied(MIDIDevices.subscribePermissionDenied);
+
   return {
     display: {
-      enable: input.source === "display",
+      pressed: input.source === "display",
       onChange: InputController.setDisplay,
     },
     // 展開は先頭に置く。末尾だと、将来 useDeviceOptions が同名のキーを
     // 返すようになったときに、下で明示した値が黙って上書きされるため
     input: {
       ...inputOptions,
-      enable: input.source === "mic",
+      pressed: input.source === "mic",
+      disabled: inputDenied,
       selected: input.deviceId,
       onChange: InputController.setMicrophone,
     },
     output: {
       ...outputOptions,
-      enable: output.enabled,
+      pressed: output.enabled,
+      // 出力に権限は要らない。列挙できない環境でも既定のデバイスで鳴らせる
+      disabled: false,
       selected: output.deviceId,
       onChange: OutputController.set,
     },
     midi: {
       ...midiOptions,
-      enable: midi.enabled,
+      pressed: midi.enabled,
+      disabled: midiDenied,
       selected: midi.deviceId,
       onChange: MIDIController.set,
     },

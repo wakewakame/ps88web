@@ -40,7 +40,7 @@ export const Toolbar = ({
       <ButtonSelector icon="piano" {...devices.midi} />
       <ButtonSelector
         icon="code"
-        enable={editorVisible}
+        pressed={editorVisible}
         onChange={onEditorVisibleChange}
       />
     </div>
