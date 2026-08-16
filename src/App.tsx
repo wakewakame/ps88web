@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Canvas } from "./components/Canvas";
+import { ChatPanel } from "./components/ChatPanel";
 import { CodeEditor } from "./components/CodeEditor";
 import { Keyboard } from "./components/Keyboard";
 import { Toolbar } from "./components/Toolbar";
@@ -18,6 +19,7 @@ const onDraw = (w: number, h: number, mouse: Types.Mouse) => {
 const App = () => {
   const devices = useAudioDevices();
   const [editorVisible, setEditorVisible] = useState(false);
+  const [chatVisible, setChatVisible] = useState(false);
   const appRef = usePreventTouchScroll<HTMLDivElement>();
 
   return (
@@ -26,13 +28,21 @@ const App = () => {
         devices={devices}
         editorVisible={editorVisible}
         onEditorVisibleChange={setEditorVisible}
+        chatVisible={chatVisible}
+        onChatVisibleChange={setChatVisible}
       />
-      <div
-        className="w-full flex-auto box-border relative"
-        onPointerDown={devices.initOutput}
-      >
-        <Canvas width={640} height={480} onDraw={onDraw} />
-        <CodeEditor visible={editorVisible} />
+      {/* min-h-0 が無いと、中身が縦に伸びたときに flex の子が縮まず、
+          ページ全体が h-dvh を超えて伸びてしまう */}
+      <div className="w-full flex-auto min-h-0 box-border relative flex flex-row">
+        <div
+          className="grow relative overflow-hidden"
+          onPointerDown={devices.initOutput}
+        >
+          <Canvas width={640} height={480} onDraw={onDraw} />
+          <CodeEditor visible={editorVisible} />
+        </div>
+        {/* 非表示のときもアンマウントせず、会話と入力中の文章を保つ */}
+        <ChatPanel visible={chatVisible} />
       </div>
       <div
         className="w-full h-16 pt-1 box-border flex-none"
