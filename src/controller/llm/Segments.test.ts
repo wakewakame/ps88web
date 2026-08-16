@@ -90,9 +90,23 @@ describe("extractCode", () => {
     expect(extractCode(markdown)).toContain("本体");
   });
 
-  it("ps88 を使わないコードブロックは無視する", () => {
-    // 使い方の説明などで、動かないコードが混ざることがある
+  it("シェルのコマンドは反映しない", () => {
+    // 使い方の説明などで、コードではないものが混ざることがある
     expect(extractCode("```sh\nnpm install\n```")).toBeNull();
+  });
+
+  it("ps88 を使わないコードでも反映する", () => {
+    // エラーの挙動を確かめるためだけのコードを頼むことがある。
+    // ps88 を使っているかで弾くと、反映されない理由が分からなくなる
+    expect(extractCode('```js\nthrow new Error("test");\n```')).toBe(
+      'throw new Error("test");',
+    );
+    expect(extractCode("```js\nconsole.log(1);\n```")).toBe("console.log(1);");
+  });
+
+  it("言語の指定が無くても反映する", () => {
+    // 言語を書かないモデルがある。ここで取りこぼす方が困る
+    expect(extractCode("```\nps88.audio(cb);\n```")).toBe("ps88.audio(cb);");
   });
 
   it("書きかけのコードブロックは返さない", () => {

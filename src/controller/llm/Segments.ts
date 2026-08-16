@@ -68,19 +68,44 @@ export const parseSegments = (markdown: string): Segment[] => {
 };
 
 /**
+ * JavaScript ではないことがはっきりしている言語
+ *
+ * 逆に「JavaScript である言語」の一覧では判定しない。js / javascript 以外の
+ * 名前を書いてくるモデルや、言語を書かないモデルがあり、それを取りこぼすと
+ * 反映されない理由がユーザーから見て分からないため。
+ */
+const NOT_JAVASCRIPT = new Set([
+  "sh",
+  "bash",
+  "zsh",
+  "shell",
+  "console",
+  "text",
+  "plaintext",
+  "json",
+  "yaml",
+  "yml",
+  "toml",
+  "html",
+  "css",
+  "diff",
+  "md",
+  "markdown",
+]);
+
+/**
  * 回答から、エディタに自動で反映するコードを取り出す
  *
- * 完成したコードブロックのうち、ps88 の登録を含む最後のものを返す。
+ * 完成したコードブロックのうち、最後のものを返す。
  *
- * ps88.audio / ps88.gui を登録しないコードは、反映しても何も鳴らないため
- * 候補から外す。使い方の説明でシェルのコマンドなどが混ざることがある。
+ * 中身が ps88 を使っているかは見ない。エラーの挙動を確かめるためだけの
+ * `throw` や、`console.log` だけのコードを頼むこともあり、そこで弾くと
+ * 反映されない理由が分からないため。使い方の説明に混ざるシェルのコマンドは、
+ * 言語の指定で除ける範囲だけ除く。
  *
  * 複数のコードブロックがあるとき、どれが本体かを長さなどで当てにいくことは
  * しない。書き直したものが後に来るという前提の方が外れにくく、外れた場合も
- * ブロックごとのボタンから選び直せるため。
- *
- * 言語の指定も当てにしない。js / javascript 以外を書いてくるモデルがあり、
- * そこで取りこぼす方が困るため。
+ * 反映前のコードと入れ替えて戻せるため。
  *
  * @returns 反映できるコード (null=まだ無い)
  */
@@ -90,7 +115,7 @@ export const extractCode = (markdown: string): string | null => {
     if (
       segment.type === "code" &&
       !segment.open &&
-      segment.code.includes("ps88.")
+      !NOT_JAVASCRIPT.has(segment.lang.toLowerCase())
     ) {
       body = segment.code;
     }
