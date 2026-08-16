@@ -94,31 +94,64 @@ const NOT_JAVASCRIPT = new Set([
 ]);
 
 /**
- * 回答から、エディタに自動で反映するコードを取り出す
+ * 回答からコードを取り出した結果
  *
- * 完成したコードブロックのうち、最後のものを返す。
- *
- * 中身が ps88 を使っているかは見ない。エラーの挙動を確かめるためだけの
- * `throw` や、`console.log` だけのコードを頼むこともあり、そこで弾くと
- * 反映されない理由が分からないため。使い方の説明に混ざるシェルのコマンドは、
- * 言語の指定で除ける範囲だけ除く。
- *
- * 複数のコードブロックがあるとき、どれが本体かを長さなどで当てにいくことは
- * しない。書き直したものが後に来るという前提の方が外れにくく、外れた場合も
- * 反映前のコードと入れ替えて戻せるため。
- *
- * @returns 反映できるコード (null=まだ無い)
+ * 反映しなかった場合は、その理由まで返す。理由を持たずに null を返すと、
+ * 画面上は「AI がコードを出したのに何も起きない」としか見えず、
+ * 壊れているのか仕様なのか区別が付かないため。
  */
-export const extractCode = (markdown: string): string | null => {
-  let body: string | null = null;
-  for (const segment of parseSegments(markdown)) {
-    if (
-      segment.type === "code" &&
-      !segment.open &&
-      !NOT_JAVASCRIPT.has(segment.lang.toLowerCase())
-    ) {
-      body = segment.code;
+export type PickedCode =
+  | { type: "code"; code: string }
+  /** コードブロックが無い (説明だけの回答) */
+  | { type: "noCode" }
+  /** 閉じの ``` が来ていない (書きかけ、または応答が途中で切れた) */
+  | { type: "unclosed" }
+  /** JavaScript ではない言語のブロックしか無い */
+  | { type: "notJavaScript" }
+  /** ps88 を使っていない (反映しても何も起きない) */
+  | { type: "notPS88" };
+
+/**
+ * 回答から、エディタに反映するコードを選ぶ
+ *
+ * 条件を満たすコードブロックのうち最後のものを採る。どれが本体かを長さなどで
+ * 当てにいくことはしない。書き直したものが後に来るという前提の方が外れにくく、
+ * 外れた場合も反映前のコードと入れ替えて戻せるため。
+ */
+export const pickCode = (markdown: string): PickedCode => {
+  const blocks = parseSegments(markdown).filter(
+    (segment) => segment.type === "code",
+  );
+  if (blocks.length === 0) {
+    return { type: "noCode" };
+  }
+
+  // 条件に合う最後のブロックを採る。合うものが一つも無かったときのために、
+  // 弾いた理由も控えておく (採れたあとの理由は使わない。説明のためだけに
+  // 後ろに別の言語のブロックを添えてくることがあるため)
+  let chosen: string | null = null;
+  let reason: PickedCode = { type: "unclosed" };
+  const reject = (next: PickedCode) => {
+    if (chosen == null) {
+      reason = next;
+    }
+  };
+
+  for (const block of blocks) {
+    if (block.type !== "code") {
+      continue;
+    }
+    if (block.open) {
+      reject({ type: "unclosed" });
+    } else if (NOT_JAVASCRIPT.has(block.lang.toLowerCase())) {
+      reject({ type: "notJavaScript" });
+    } else if (!block.code.includes("ps88")) {
+      // ps88 を使わないコードを反映しても音も絵も変わらない。
+      // 差し替えると、それまでのシンセが黙って消えるだけになる
+      reject({ type: "notPS88" });
+    } else {
+      chosen = block.code;
     }
   }
-  return body;
+  return chosen != null ? { type: "code", code: chosen } : reason;
 };

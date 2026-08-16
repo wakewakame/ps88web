@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as CodeStore from "../controller/CodeStore";
-import { extractCode, parseSegments } from "../controller/llm/Segments";
-import type { Segment } from "../controller/llm/Segments";
+import { parseSegments, pickCode } from "../controller/llm/Segments";
+import type { PickedCode, Segment } from "../controller/llm/Segments";
 import { useChat } from "../hooks/useChat";
 import type { ChatEntry } from "../hooks/useChat";
 import { useLLMSettings } from "../hooks/useLLMSettings";
@@ -62,11 +62,12 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   }, []);
 
   // 回答にコードブロックが出そろった時点で、そのままエディタへ反映する。
-  // extractCode は閉じていないブロックを返さないため、ストリーミング途中の
+  // pickCode は閉じていないブロックを選ばないため、ストリーミング途中の
   // 書きかけのコードがビルドされることはない
   const latest = entries.at(-1);
-  const latestCode =
-    latest?.role === "assistant" ? extractCode(latest.content) : null;
+  const picked: PickedCode | null =
+    latest?.role === "assistant" ? pickCode(latest.content) : null;
+  const latestCode = picked?.type === "code" ? picked.code : null;
   useEffect(() => {
     // すでに同じ内容なら触らない。ここを「前回反映したコード」ではなく
     // 現在のコードと比べているのは、反映したあとにユーザーが手で書き換えた
@@ -77,6 +78,11 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
     }
     applyCode(latestCode);
   }, [latestCode, applyCode]);
+
+  // 反映しなかったときは理由を出す。黙って何も起きないと、壊れているのか
+  // そういう仕様なのかが画面から判断できない。
+  // 書いている途中は当然まだ反映できないので、終わってから出す
+  const notApplied = streaming ? null : describeNotApplied(picked);
 
   // 反映前のコードと入れ替える。戻すのではなく入れ替えにしているのは、
   // 反映後に手で書き直したものを、押し間違いで失わないようにするため
@@ -152,6 +158,12 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           <div ref={bottomRef} />
         </div>
 
+        {notApplied != null ? (
+          <p className="flex-none px-3 py-2 text-xs text-amber-400 border-t border-zinc-700">
+            {notApplied}
+          </p>
+        ) : null}
+
         {error != null ? (
           <p className="flex-none px-3 py-2 text-xs text-red-400 border-t border-zinc-700">
             {error}
@@ -218,6 +230,25 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
       </div>
     </div>
   );
+};
+
+/**
+ * コードを反映しなかった理由の説明 (null=説明する必要が無い)
+ *
+ * コードブロックがそもそも無い回答 (質問への答えなど) は、反映されなくて
+ * 当たり前なので黙っている
+ */
+const describeNotApplied = (picked: PickedCode | null): string | null => {
+  switch (picked?.type) {
+    case "unclosed":
+      return "コードが最後まで届かなかったため反映していません。もう一度頼むか、短く分けて頼んでみてください。";
+    case "notJavaScript":
+      return "JavaScript のコードブロックが無かったため反映していません。";
+    case "notPS88":
+      return "ps88 を使っていないコードだったため反映していません。";
+    default:
+      return null;
+  }
 };
 
 type IconButtonArgs = {

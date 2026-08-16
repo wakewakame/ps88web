@@ -53,6 +53,24 @@ export async function* parseSSE(
   }
 }
 
+/** 長さの上限で打ち切られたことを伝えるイベントか */
+const isTruncated = (
+  protocol: Protocol,
+  event: Record<string, unknown>,
+): boolean => {
+  if (protocol === "anthropic") {
+    const delta = event.delta as { stop_reason?: unknown } | undefined;
+    return (
+      event.type === "message_delta" && delta?.stop_reason === "max_tokens"
+    );
+  }
+  const choices = event.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return false;
+  }
+  return (choices[0] as { finish_reason?: unknown }).finish_reason === "length";
+};
+
 /** SSE の 1 行から data の中身を取り出す (data 行でなければ null) */
 const toData = (line: string): string | null => {
   const trimmed = line.trimEnd();
@@ -185,6 +203,15 @@ export const extractDelta = (protocol: Protocol, data: string): string => {
   const message = findErrorMessage(event);
   if (message != null) {
     throw new Error(message);
+  }
+
+  // 長さの上限で打ち切られると、コードブロックが閉じないまま終わる。
+  // 黙って終わると「コードを出したのに反映されない」ようにしか見えないため、
+  // 打ち切られたこと自体を伝える
+  if (isTruncated(protocol, event)) {
+    throw new Error(
+      "回答が長さの上限で切れました。モデルの出力上限を超えている可能性があります",
+    );
   }
 
   if (protocol === "anthropic") {

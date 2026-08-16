@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractCode, parseSegments } from "./Segments.ts";
+import { parseSegments, pickCode } from "./Segments.ts";
 
 describe("parseSegments", () => {
   it("地の文とコードブロックを分ける", () => {
@@ -46,8 +46,12 @@ describe("parseSegments", () => {
   });
 });
 
-describe("extractCode", () => {
+describe("pickCode", () => {
   const program = (body: string) => `ps88.audio((ctx) => {\n${body}\n});`;
+  const code = (markdown: string) => {
+    const picked = pickCode(markdown);
+    return picked.type === "code" ? picked.code : picked.type;
+  };
 
   it("書き直されたコードを返す", () => {
     const markdown = [
@@ -56,10 +60,10 @@ describe("extractCode", () => {
       "```",
       "直しました",
       "```js",
-      program("  // 新しい\n  // 行が増えた"),
+      program("  // 新しい"),
       "```",
     ].join("\n");
-    expect(extractCode(markdown)).toContain("新しい");
+    expect(code(markdown)).toContain("新しい");
   });
 
   it("短く書き直された場合もあとのものを返す", () => {
@@ -74,10 +78,10 @@ describe("extractCode", () => {
       program("  // 短い版"),
       "```",
     ].join("\n");
-    expect(extractCode(markdown)).toContain("短い版");
+    expect(code(markdown)).toContain("短い版");
   });
 
-  it("ps88 を使わないブロックが後ろにあっても本体を返す", () => {
+  it("JavaScript でないブロックが後ろにあっても本体を返す", () => {
     const markdown = [
       "```js",
       program("  // 本体"),
@@ -87,33 +91,37 @@ describe("extractCode", () => {
       "npm run dev",
       "```",
     ].join("\n");
-    expect(extractCode(markdown)).toContain("本体");
-  });
-
-  it("シェルのコマンドは反映しない", () => {
-    // 使い方の説明などで、コードではないものが混ざることがある
-    expect(extractCode("```sh\nnpm install\n```")).toBeNull();
-  });
-
-  it("ps88 を使わないコードでも反映する", () => {
-    // エラーの挙動を確かめるためだけのコードを頼むことがある。
-    // ps88 を使っているかで弾くと、反映されない理由が分からなくなる
-    expect(extractCode('```js\nthrow new Error("test");\n```')).toBe(
-      'throw new Error("test");',
-    );
-    expect(extractCode("```js\nconsole.log(1);\n```")).toBe("console.log(1);");
+    expect(code(markdown)).toContain("本体");
   });
 
   it("言語の指定が無くても反映する", () => {
     // 言語を書かないモデルがある。ここで取りこぼす方が困る
-    expect(extractCode("```\nps88.audio(cb);\n```")).toBe("ps88.audio(cb);");
+    expect(code("```\nps88.audio(cb);\n```")).toBe("ps88.audio(cb);");
   });
 
-  it("書きかけのコードブロックは返さない", () => {
-    expect(extractCode("```js\nps88.audio((ctx) => {")).toBeNull();
+  it("分割代入で ps88 を使うコードも反映する", () => {
+    expect(code("```js\nconst { audio } = ps88;\naudio(cb);\n```")).toContain(
+      "audio(cb);",
+    );
   });
 
-  it("コードブロックが無ければ null を返す", () => {
-    expect(extractCode("文章だけ")).toBeNull();
+  // 反映しない場合は、その理由まで返す。黙って何も起きないと、
+  // 壊れているのか仕様なのか画面から区別が付かないため
+  it("シェルのコマンドは反映せず、理由を返す", () => {
+    expect(code("```sh\nnpm install\n```")).toBe("notJavaScript");
+  });
+
+  it("ps88 を使わないコードは反映せず、理由を返す", () => {
+    expect(code('```js\nthrow new Error("x");\n```')).toBe("notPS88");
+  });
+
+  it("書きかけのコードは反映せず、理由を返す", () => {
+    // 応答が途中で切れた場合もここに来る
+    expect(code("```js\nps88.audio((ctx) => {")).toBe("unclosed");
+  });
+
+  it("コードブロックが無ければ理由も返さない", () => {
+    // 質問に答えただけの回答は、反映されなくて当たり前
+    expect(code("文章だけ")).toBe("noCode");
   });
 });
