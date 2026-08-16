@@ -15,6 +15,8 @@ class WaveformProcessor extends AudioWorkletProcessor {
     const recvMessage = (message: Types.RecvMessage) => {
       this.port.postMessage(message);
     };
+    const reportError = (phase: Types.RecvMessageError["phase"], e: unknown) =>
+      this.reportError(phase, e);
 
     const api: PS88.PS88 = {
       audio: (callback: PS88.AudioFunc) => {
@@ -55,7 +57,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             this.audioCallback = undefined;
             this.guiCallback = undefined;
-            console.error(e);
+            reportError("build", e);
           }
           return;
         }
@@ -97,7 +99,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             // gui の失敗で audio まで止めない
             this.guiCallback = undefined;
-            console.error(e);
+            reportError("gui", e);
           }
           recvMessage({ type: "draw", shapes });
           return;
@@ -112,6 +114,22 @@ class WaveformProcessor extends AudioWorkletProcessor {
       }
     });
     this.port.start();
+  }
+
+  /**
+   * 例外を console と main 側の両方へ伝える
+   *
+   * AudioWorklet の console は開発者ツールを開かないと見えないため、
+   * 画面や AI チャットからも拾えるようにしておく
+   */
+  reportError(phase: Types.RecvMessageError["phase"], e: unknown) {
+    console.error(e);
+    const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    this.port.postMessage({
+      type: "error",
+      phase,
+      message,
+    } satisfies Types.RecvMessageError);
   }
 
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
@@ -151,7 +169,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
       } catch (e) {
         // audio の失敗で gui まで止めない
         this.audioCallback = undefined;
-        console.error(e);
+        this.reportError("audio", e);
       }
     }
     // audioCallback が無い場合は消費者がいないため、溜めずに捨てる
