@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as CodeStore from "../controller/CodeStore";
 import { parseSegments, pickCode } from "../controller/llm/Segments";
 import type { PickedCode, Segment } from "../controller/llm/Segments";
+import * as Settings from "../controller/llm/Settings";
 import { useChat } from "../hooks/useChat";
 import type { ChatEntry } from "../hooks/useChat";
 import { useLLMSettings } from "../hooks/useLLMSettings";
@@ -22,7 +23,8 @@ type ChatPanelArgs = {
  * 意図しない上書きに備えて、反映前のコードと行き来できるようにしておく
  */
 export const ChatPanel = ({ visible }: ChatPanelArgs) => {
-  const { settings, loaded, ready, setSettings } = useLLMSettings();
+  const { settings, loaded } = useLLMSettings();
+  const ready = Settings.isReady(settings);
   const { entries, streaming, error, send, stop, clear } = useChat();
   const processorError = useProcessorError();
   const [input, setInput] = useState("");
@@ -30,8 +32,8 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   // 反映する前のコード。行き来できるように保持する
   const [undoCode, setUndoCode] = useState<string | null>(null);
 
-  // 設定が未完了なら開いておく。読み込みを待たずに開くと、保存済みの設定が
-  // ある人にも一瞬だけ設定画面が出てしまう
+  // 設定が未完了なら開いておく。読み込みを待たずに判断すると、保存済みの
+  // 設定がある人にも一瞬だけ設定画面が出てしまう
   useEffect(() => {
     if (loaded && !ready) {
       setSettingsOpen(true);
@@ -141,7 +143,7 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
         {settingsOpen ? (
           // 設定が縦に長いときも、会話の領域を潰しきらないように上限を設ける
           <div className="flex-none max-h-[50%] overflow-y-auto">
-            <ChatSettings settings={settings} onChange={setSettings} />
+            <ChatSettings settings={settings} onChange={Settings.set} />
           </div>
         ) : null}
 
