@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import * as AudioController from "../controller/AudioController";
+import * as AudioController from "../controller/audio/AudioController";
 
 /**
  * ユーザーコードの実行エラー (null=エラー無し)

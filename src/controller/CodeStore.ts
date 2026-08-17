@@ -1,6 +1,6 @@
-import * as AudioController from "./AudioController.ts";
+import * as AudioController from "./audio/AudioController.ts";
 import * as Storage from "./Storage.ts";
-import defaultProcessorCode from "./Processor?raw";
+import defaultProcessorCode from "./audio/Processor?raw";
 
 // ユーザーのコードを保存する key
 const CODE_STORAGE_KEY = "code";

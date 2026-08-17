@@ -1,4 +1,4 @@
-import type * as PS88 from "../../lib/ps88.d.ts";
+import type * as PS88 from "../../../lib/ps88.d.ts";
 
 /**
  * 判別可能ユニオンの網羅性をコンパイル時に検査する

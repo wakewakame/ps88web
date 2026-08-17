@@ -1,8 +1,8 @@
 import * as AudioController from "./AudioController.ts";
 import * as AudioDevices from "./AudioDevices.ts";
 import { enqueue } from "./Queue.ts";
-import { createStore } from "./Store.ts";
-import * as Storage from "./Storage.ts";
+import { createStore } from "../Store.ts";
+import * as Storage from "../Storage.ts";
 
 // 入力の実行時の状態と、その永続化を持つ。
 //

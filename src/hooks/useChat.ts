@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import * as AudioController from "../controller/AudioController";
+import * as AudioController from "../controller/audio/AudioController";
 import * as CodeStore from "../controller/CodeStore";
 import * as Client from "../controller/llm/Client";
 import * as Prompt from "../controller/llm/Prompt";

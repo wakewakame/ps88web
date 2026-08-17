@@ -1,4 +1,4 @@
-import type { RecvMessageError } from "../AudioControllerTypes.ts";
+import type { RecvMessageError } from "../audio/AudioControllerTypes.ts";
 import { t } from "../../i18n";
 import ps88_d_ts from "../../../lib/ps88.d.ts?raw";
 import sineExample from "../../../public/examples/examples/sine.js?raw";

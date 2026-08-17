@@ -1,6 +1,6 @@
 import * as Types from "./AudioControllerTypes.ts";
 import workerUrl from "./AudioControllerWorker.ts?worker&url";
-import * as Storage from "./Storage.ts";
+import * as Storage from "../Storage.ts";
 
 // ps88.save() / ps88.load() が読み書きするデータの保存先
 const SAVE_STORAGE_KEY = "save";

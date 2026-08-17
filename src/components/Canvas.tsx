@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import * as Types from "../controller/AudioControllerTypes";
+import * as Types from "../controller/audio/AudioControllerTypes";
 
 type CanvasArgs = {
   width: number;

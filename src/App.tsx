@@ -4,8 +4,8 @@ import { ChatPanel } from "./components/ChatPanel";
 import { CodeEditor } from "./components/CodeEditor";
 import { Keyboard } from "./components/Keyboard";
 import { Toolbar } from "./components/Toolbar";
-import * as AudioController from "./controller/AudioController";
-import type * as Types from "./controller/AudioControllerTypes";
+import * as AudioController from "./controller/audio/AudioController";
+import type * as Types from "./controller/audio/AudioControllerTypes";
 import { useAudioDevices } from "./hooks/useAudioDevices";
 import { usePreventTouchScroll } from "./hooks/usePreventTouchScroll";
 
