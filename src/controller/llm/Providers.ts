@@ -1,3 +1,5 @@
+import { t } from "../../i18n";
+
 /**
  * AI の接続先の定義
  *
@@ -64,20 +66,20 @@ export const PROVIDERS: Provider[] = [
     baseURL: "https://openrouter.ai/api/v1",
     model: "",
     apiKeyURL: "https://openrouter.ai/keys",
-    note: "1 つのキーで複数社のモデルを選べます",
+    note: t.providers.openrouterNote,
   },
   {
     id: "local",
-    name: "ローカル (Ollama など)",
+    name: t.providers.localName,
     protocol: "openai",
     baseURL: "http://localhost:11434/v1",
     model: "",
     apiKeyURL: "",
-    note: "OpenAI 互換の API を持つローカルのサーバーに接続します",
+    note: t.providers.localNote,
   },
   {
     id: "custom",
-    name: "その他 (OpenAI 互換)",
+    name: t.providers.otherName,
     protocol: "openai",
     baseURL: "",
     model: "",

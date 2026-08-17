@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import * as Client from "../controller/llm/Client";
 import * as Settings from "../controller/llm/Settings";
 import { PROVIDERS, findProvider } from "../controller/llm/Providers";
+import { t } from "../i18n";
 
 type ChatSettingsArgs = {
   settings: Settings.Settings;
@@ -58,7 +59,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
     <div className="flex flex-col gap-3 p-3 border-b border-zinc-700">
       <div className="flex flex-col gap-1">
         <label className={LABEL_CLASS} htmlFor={`${modelListId}-provider`}>
-          接続先
+          {t.settings.provider}
         </label>
         <select
           id={`${modelListId}-provider`}
@@ -79,7 +80,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
 
       <div className="flex flex-col gap-1">
         <label className={LABEL_CLASS} htmlFor={`${modelListId}-url`}>
-          エンドポイント
+          {t.settings.endpoint}
         </label>
         <input
           id={`${modelListId}-url`}
@@ -94,7 +95,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
       {provider.apiKeyURL !== "" ? (
         <div className="flex flex-col gap-1">
           <label className={LABEL_CLASS} htmlFor={`${modelListId}-key`}>
-            API キー
+            {t.settings.apiKey}
           </label>
           <input
             id={`${modelListId}-key`}
@@ -111,13 +112,11 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            キーを取得する
+            {t.settings.getApiKey}
           </a>
           {/* 月額プランを契約していれば使えると誤解されやすいため先に断る。
               API の課金は各プランとは別枠になっている */}
-          <p className="text-xs text-zinc-500">
-            月額プラン (ChatGPT Plus など) とは別に、API の利用登録が必要です。
-          </p>
+          <p className="text-xs text-zinc-500">{t.settings.subscriptionNote}</p>
           <label className="flex flex-row gap-2 items-center text-xs text-zinc-400">
             <input
               type="checkbox"
@@ -126,21 +125,21 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
                 onChange({ ...settings, rememberApiKey: e.target.checked })
               }
             />
-            このブラウザに保存する
+            {t.settings.rememberApiKey}
           </label>
         </div>
       ) : null}
 
       <div className="flex flex-col gap-1">
         <label className={LABEL_CLASS} htmlFor={`${modelListId}-model`}>
-          モデル
+          {t.settings.model}
         </label>
         <div className="flex flex-row gap-2">
           <input
             id={`${modelListId}-model`}
             className={FIELD_CLASS}
             list={modelListId}
-            placeholder="「一覧」から選ぶか直接入力"
+            placeholder={t.settings.modelPlaceholder}
             value={settings.model}
             onChange={(e) => onChange({ ...settings, model: e.target.value })}
           />
@@ -152,12 +151,10 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
               transition-all duration-150 ease-in-out
             "
             disabled={fetching || settings.baseURL === "" || missingApiKey}
-            title={
-              missingApiKey ? "先に API キーを入力してください" : undefined
-            }
+            title={missingApiKey ? t.settings.apiKeyFirst : undefined}
             onClick={() => void onFetchModels()}
           >
-            {fetching ? "取得中" : "一覧"}
+            {fetching ? t.settings.fetchingModels : t.settings.fetchModels}
           </button>
         </div>
         {/* モデル名は増減が激しいので、接続先から取得して補完に使う */}
@@ -168,15 +165,12 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
         </datalist>
         {modelsError != null ? (
           <p className="text-xs text-red-400">
-            一覧を取得できませんでした ({modelsError})
+            {t.settings.modelsFailed(modelsError)}
           </p>
         ) : null}
       </div>
 
-      <p className="text-xs text-zinc-500">
-        入力したキーはこのブラウザに留まり、上のエンドポイントへ直接送られます。
-        ps88web の側にキーが渡ることはありません (サーバーがありません)。
-      </p>
+      <p className="text-xs text-zinc-500">{t.settings.keyNote}</p>
     </div>
   );
 };

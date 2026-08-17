@@ -1,4 +1,5 @@
 import type { Protocol } from "./Providers.ts";
+import { t } from "../../i18n";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -209,9 +210,7 @@ export const extractDelta = (protocol: Protocol, data: string): string => {
   // 黙って終わると「コードを出したのに反映されない」ようにしか見えないため、
   // 打ち切られたこと自体を伝える
   if (isTruncated(protocol, event)) {
-    throw new Error(
-      "回答が長さの上限で切れました。モデルの出力上限を超えている可能性があります",
-    );
+    throw new Error(t.client.truncated);
   }
 
   if (protocol === "anthropic") {
@@ -262,7 +261,7 @@ export const streamChat = async (
     throw new Error(await toErrorMessage(res));
   }
   if (res.body == null) {
-    throw new Error("レスポンスが空です");
+    throw new Error(t.client.emptyResponse);
   }
   for await (const data of parseSSE(res.body)) {
     const delta = extractDelta(conn.protocol, data);

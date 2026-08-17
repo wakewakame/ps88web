@@ -4,6 +4,7 @@ import * as CodeStore from "../controller/CodeStore";
 import * as Client from "../controller/llm/Client";
 import * as Prompt from "../controller/llm/Prompt";
 import * as Settings from "../controller/llm/Settings";
+import { t } from "../i18n";
 
 export type ChatEntry = {
   /** 表示の key 用。会話の中で一意であればよい */
@@ -37,7 +38,7 @@ export const useChat = () => {
       }
       const settings = Settings.get();
       if (!Settings.isReady(settings)) {
-        setError("接続先の設定が未完了です");
+        setError(t.chat.notSetUp);
         return;
       }
 

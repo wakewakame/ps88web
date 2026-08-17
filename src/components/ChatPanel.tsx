@@ -7,6 +7,7 @@ import type { ChatEntry } from "../hooks/useChat";
 import { useLLMSettings } from "../hooks/useLLMSettings";
 import { useProcessorError } from "../hooks/useProcessorError";
 import { ChatSettings } from "./ChatSettings";
+import { t } from "../i18n";
 
 type ChatPanelArgs = {
   visible: boolean;
@@ -113,19 +114,17 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           文字が選択されると邪魔なため) が、チャットは読んで写す場所なので戻す */}
       <div className="h-full w-96 max-sm:w-screen flex flex-col select-text bg-zinc-800 border-l border-zinc-700">
         <div className="flex-none flex flex-row items-center gap-2 px-3 py-2 border-b border-zinc-700">
-          <span className="text-sm text-zinc-100 grow">
-            AI にコードを書いてもらう
-          </span>
+          <span className="text-sm text-zinc-100 grow">{t.chat.title}</span>
           {undoCode != null ? (
             <IconButton
               icon="swap_horiz"
-              title="反映前のコードと入れ替える"
+              title={t.chat.swapWithPrevious}
               onClick={onSwap}
             />
           ) : null}
           <IconButton
             icon="delete_sweep"
-            title="会話を消す"
+            title={t.chat.clearConversation}
             onClick={() => {
               clear();
               setUndoCode(null);
@@ -133,7 +132,7 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           />
           <IconButton
             icon="settings"
-            title="接続の設定"
+            title={t.chat.connectionSettings}
             pressed={settingsOpen}
             onClick={() => setSettingsOpen(!settingsOpen)}
           />
@@ -183,9 +182,9 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
               transition-all duration-150 ease-in-out
             "
               disabled={streaming || !ready}
-              onClick={() => void send("このエラーを直してください。")}
+              onClick={() => void send(t.chat.fixRequest)}
             >
-              直してもらう
+              {t.chat.askForFix}
             </button>
           </div>
         ) : null}
@@ -198,9 +197,7 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           "
             rows={2}
             placeholder={
-              ready
-                ? "こんな感じのシンセを書いて"
-                : "先に接続の設定をしてください"
+              ready ? t.chat.inputPlaceholder : t.chat.inputPlaceholderNotReady
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -241,11 +238,11 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
 const describeNotApplied = (picked: PickedCode | null): string | null => {
   switch (picked?.type) {
     case "unclosed":
-      return "コードが最後まで届かなかったため反映していません。もう一度頼むか、短く分けて頼んでみてください。";
+      return t.chat.notApplied.unclosed;
     case "notJavaScript":
-      return "JavaScript のコードブロックが無かったため反映していません。";
+      return t.chat.notApplied.notJavaScript;
     case "notPS88":
-      return "ps88 を使っていないコードだったため反映していません。";
+      return t.chat.notApplied.notPS88;
     default:
       return null;
   }
@@ -278,19 +275,16 @@ const Placeholder = ({ ready }: { ready: boolean }) => (
   <div className="text-xs text-zinc-500 flex flex-col gap-2">
     {ready ? (
       <>
-        <p>いまのコードを渡したうえで、要望を伝えます。例えば</p>
+        <p>{t.chat.intro.lead}</p>
         <ul className="list-disc list-inside">
-          <li>ノコギリ波のシンセにして</li>
-          <li>ローパスフィルタを足して、カットオフをマウスで動かせるように</li>
-          <li>ディレイを足して</li>
+          {t.chat.intro.examples.map((example) => (
+            <li key={example}>{example}</li>
+          ))}
         </ul>
-        <p>Ctrl (Cmd) + Enter で送信します。</p>
+        <p>{t.chat.intro.sendHint}</p>
       </>
     ) : (
-      <p>
-        右上の歯車から、使う AI と API キーを設定してください。
-        計算はあなたのアカウントで行われます。
-      </p>
+      <p>{t.chat.intro.setUpFirst}</p>
     )}
   </div>
 );

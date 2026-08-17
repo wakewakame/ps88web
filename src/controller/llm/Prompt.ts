@@ -1,4 +1,5 @@
 import type { RecvMessageError } from "../AudioControllerTypes.ts";
+import { t } from "../../i18n";
 import ps88_d_ts from "../../../lib/ps88.d.ts?raw";
 import sineExample from "../../../public/examples/examples/sine.js?raw";
 import baseExample from "../../../public/examples/examples/base.js?raw";
@@ -39,7 +40,7 @@ const RULES = `# あなたの役割
 
 # 回答の仕方
 
-- 説明は日本語で、簡潔に書いてください
+- ${t.prompt.replyLanguage}
 - コードは \`\`\`js のコードブロックに入れてください
 - コードブロックには**常にコード全体**を書いてください。書いたコードはそのまま
   エディタに反映され実行されるため、差分や省略 (\`// ...省略...\`) があると動きません
