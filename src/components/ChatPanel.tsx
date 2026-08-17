@@ -176,11 +176,11 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
             </p>
             <button
               className="
-              px-2 py-1 flex-none rounded-md bg-zinc-700 hover:bg-zinc-600
-              text-zinc-100 text-xs whitespace-nowrap cursor-pointer
-              disabled:text-zinc-500 disabled:cursor-not-allowed
-              transition-all duration-150 ease-in-out
-            "
+                px-2 py-1 flex-none rounded-md bg-zinc-700 hover:bg-zinc-600
+                text-zinc-100 text-xs whitespace-nowrap cursor-pointer
+                disabled:text-zinc-500 disabled:cursor-not-allowed
+                transition-all duration-150 ease-in-out
+              "
               disabled={streaming || !ready}
               onClick={() => void send(t.chat.fixRequest)}
             >
@@ -192,9 +192,9 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
         <div className="flex-none flex flex-row gap-2 p-3 border-t border-zinc-700">
           <textarea
             className="
-            grow px-2 py-1 rounded-md bg-zinc-900 text-zinc-100 text-sm resize-none
-            border border-zinc-700 focus:border-blue-400 focus:outline-none
-          "
+              grow px-2 py-1 rounded-md bg-zinc-900 text-zinc-100 text-sm resize-none
+              border border-zinc-700 focus:border-blue-400 focus:outline-none
+            "
             rows={2}
             placeholder={
               ready ? t.chat.inputPlaceholder : t.chat.inputPlaceholderNotReady
@@ -211,11 +211,11 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           />
           <button
             className={`
-            px-3 flex-none rounded-md text-zinc-100 text-sm cursor-pointer
-            disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed
-            ${streaming ? "bg-zinc-600 hover:bg-zinc-500" : "bg-blue-400 hover:bg-blue-300"}
-            transition-all duration-150 ease-in-out
-          `}
+              px-3 flex-none rounded-md text-zinc-100 text-sm cursor-pointer
+              disabled:bg-zinc-700 disabled:text-zinc-500 disabled:cursor-not-allowed
+              ${streaming ? "bg-zinc-600 hover:bg-zinc-500" : "bg-blue-400 hover:bg-blue-300"}
+              transition-all duration-150 ease-in-out
+            `}
             disabled={!streaming && !canSend}
             onClick={() => (streaming ? stop() : onSend())}
           >
