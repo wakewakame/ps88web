@@ -277,8 +277,11 @@ const Placeholder = ({ ready }: { ready: boolean }) => (
       <>
         <p>{t.chat.intro.lead}</p>
         <ul className="list-disc list-inside">
-          {t.chat.intro.examples.map((example) => (
-            <li key={example}>{example}</li>
+          {/* 文言は起動時に決まった定数で、並び替えも増減もしない。
+              添字をキーにして問題が出る場面が無く、文言そのものをキーに
+              すると、訳に同じ文が並んだときに重複してしまう */}
+          {t.chat.intro.examples.map((example, i) => (
+            <li key={i}>{example}</li>
           ))}
         </ul>
         <p>{t.chat.intro.sendHint}</p>
