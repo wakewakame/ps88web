@@ -36,7 +36,7 @@ export const useChat = () => {
       if (trimmed === "" || abortRef.current != null) {
         return;
       }
-      const settings = Settings.get();
+      const { settings } = Settings.getState();
       if (!Settings.isReady(settings)) {
         setError(t.chat.notSetUp);
         return;

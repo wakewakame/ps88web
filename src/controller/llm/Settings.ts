@@ -78,8 +78,22 @@ export const withProvider = (settings: Settings, id: string): Settings => {
   };
 };
 
-let settings = defaultSettings();
-let loaded = false;
+/**
+ * 保持している状態
+ *
+ * 設定と「読み込みが終わったか」は同時にしか変わらないため、ひとつにまとめる。
+ * 別々に持つと、購読する側が中途半端な組み合わせを気にすることになる
+ */
+export type State = {
+  settings: Settings;
+  /** 読み込みが終わっているか (終わるまで「未設定」と判断しないために使う) */
+  loaded: boolean;
+};
+
+// useSyncExternalStore は参照の同一性で変化を判定するため、内容が変わった
+// ときだけ作り直す。読み出しのたびに作ると再 render が止まらなくなる
+let state: State = { settings: defaultSettings(), loaded: false };
+
 // 読み込みより先にユーザーが触ったか。
 // 読み込みは非同期のため、先に入力されたものを保存内容で上書きしてしまうと、
 // 打ち込んだキーが消える
@@ -92,7 +106,7 @@ const notify = () => {
   }
 };
 
-export const get = () => settings;
+export const getState = (): State => state;
 
 export const subscribe = (listener: () => void) => {
   listeners.add(listener);
@@ -102,7 +116,8 @@ export const subscribe = (listener: () => void) => {
 };
 
 export const set = (next: Settings) => {
-  settings = recordCurrent(next);
+  const settings = recordCurrent(next);
+  state = { ...state, settings };
   edited = true;
   notify();
 
@@ -121,7 +136,8 @@ export const set = (next: Settings) => {
 };
 
 /** 接続先の切り替え */
-export const selectProvider = (id: string) => set(withProvider(settings, id));
+export const selectProvider = (id: string) =>
+  set(withProvider(state.settings, id));
 
 let loadPromise: Promise<void> | undefined;
 
@@ -129,19 +145,13 @@ let loadPromise: Promise<void> | undefined;
 export const load = (): Promise<void> =>
   (loadPromise ??= (async () => {
     const stored = await Storage.load<StoredSettings>(SETTINGS_STORAGE_KEY);
-    if (stored != null && !edited) {
-      settings = {
-        ...defaultSettings(),
-        ...stored,
-        apiKey: stored.apiKey ?? "",
-      };
-    }
-    loaded = true;
+    const settings =
+      stored != null && !edited
+        ? { ...defaultSettings(), ...stored, apiKey: stored.apiKey ?? "" }
+        : state.settings;
+    state = { settings, loaded: true };
     notify();
   })());
-
-/** 読み込みが終わっているか (終わるまで「未設定」と判断しないために使う) */
-export const isLoaded = () => loaded;
 
 /** 設定が使える状態か (接続先とモデルが揃っているか) */
 export const isReady = (settings: Settings): boolean => {
