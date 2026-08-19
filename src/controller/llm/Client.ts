@@ -13,6 +13,14 @@ export type Connection = {
   model: string;
 };
 
+/** SSE の 1 行から data の中身を取り出す (data 行でなければ null) */
+const toData = (line: string): string | null => {
+  const trimmed = line.trimEnd();
+  return trimmed.startsWith("data:")
+    ? trimmed.slice("data:".length).trim()
+    : null;
+};
+
 /**
  * SSE のイベントを 1 件ずつ取り出す
  *
@@ -53,32 +61,6 @@ export async function* parseSSE(
     await reader.cancel().catch(() => {});
   }
 }
-
-/** 長さの上限で打ち切られたことを伝えるイベントか */
-const isTruncated = (
-  protocol: Protocol,
-  event: Record<string, unknown>,
-): boolean => {
-  if (protocol === "anthropic") {
-    const delta = event.delta as { stop_reason?: unknown } | undefined;
-    return (
-      event.type === "message_delta" && delta?.stop_reason === "max_tokens"
-    );
-  }
-  const choices = event.choices;
-  if (!Array.isArray(choices) || choices.length === 0) {
-    return false;
-  }
-  return (choices[0] as { finish_reason?: unknown }).finish_reason === "length";
-};
-
-/** SSE の 1 行から data の中身を取り出す (data 行でなければ null) */
-const toData = (line: string): string | null => {
-  const trimmed = line.trimEnd();
-  return trimmed.startsWith("data:")
-    ? trimmed.slice("data:".length).trim()
-    : null;
-};
 
 /** { error: { message } } の形から message を取り出す */
 const findErrorMessage = (json: unknown): string | null => {
@@ -176,6 +158,24 @@ const body = (
     stream: true,
     messages: [{ role: "system", content: system }, ...messages],
   };
+};
+
+/** 長さの上限で打ち切られたことを伝えるイベントか */
+const isTruncated = (
+  protocol: Protocol,
+  event: Record<string, unknown>,
+): boolean => {
+  if (protocol === "anthropic") {
+    const delta = event.delta as { stop_reason?: unknown } | undefined;
+    return (
+      event.type === "message_delta" && delta?.stop_reason === "max_tokens"
+    );
+  }
+  const choices = event.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return false;
+  }
+  return (choices[0] as { finish_reason?: unknown }).finish_reason === "length";
 };
 
 /**
