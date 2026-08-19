@@ -12,10 +12,6 @@ class WaveformProcessor extends AudioWorkletProcessor {
     super();
     this.save = (args.processorOptions as Types.ProcessorOptions)?.save ?? null;
 
-    const recvMessage = (message: Types.RecvMessage) => {
-      this.port.postMessage(message);
-    };
-
     const api: PS88.PS88 = {
       audio: (callback: PS88.AudioFunc) => {
         if (typeof callback !== "function") {
@@ -41,7 +37,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
             "argument must be a Uint8Array, string, null, or undefined",
           );
         }
-        recvMessage({ type: "save", data: this.save });
+        this.recvMessage({ type: "save", data: this.save });
       },
       load: () => this.save?.data ?? null,
     };
@@ -61,7 +57,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
         }
         case "draw": {
           if (this.guiCallback == undefined) {
-            recvMessage({ type: "draw", shapes: null });
+            this.recvMessage({ type: "draw", shapes: null });
             return;
           }
           const shapes: Types.Shape[] = [];
@@ -99,7 +95,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
             this.guiCallback = undefined;
             this.reportError("gui", e);
           }
-          recvMessage({ type: "draw", shapes });
+          this.recvMessage({ type: "draw", shapes });
           return;
         }
         case "midi": {
@@ -114,6 +110,11 @@ class WaveformProcessor extends AudioWorkletProcessor {
     this.port.start();
   }
 
+  /** main 側へメッセージを送る (postMessage は型が付かないためここを通す) */
+  recvMessage(message: Types.RecvMessage) {
+    this.port.postMessage(message);
+  }
+
   /**
    * 例外を console と main 側の両方へ伝える
    *
@@ -123,11 +124,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
   reportError(phase: Types.RecvMessageError["phase"], e: unknown) {
     console.error(e);
     const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    this.port.postMessage({
-      type: "error",
-      phase,
-      message,
-    } satisfies Types.RecvMessageError);
+    this.recvMessage({ type: "error", phase, message });
   }
 
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
