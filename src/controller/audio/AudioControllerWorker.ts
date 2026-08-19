@@ -15,8 +15,6 @@ class WaveformProcessor extends AudioWorkletProcessor {
     const recvMessage = (message: Types.RecvMessage) => {
       this.port.postMessage(message);
     };
-    const reportError = (phase: Types.RecvMessageError["phase"], e: unknown) =>
-      this.reportError(phase, e);
 
     const api: PS88.PS88 = {
       audio: (callback: PS88.AudioFunc) => {
@@ -57,7 +55,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             this.audioCallback = undefined;
             this.guiCallback = undefined;
-            reportError("build", e);
+            this.reportError("build", e);
           }
           return;
         }
@@ -99,7 +97,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             // gui の失敗で audio まで止めない
             this.guiCallback = undefined;
-            reportError("gui", e);
+            this.reportError("gui", e);
           }
           recvMessage({ type: "draw", shapes });
           return;
