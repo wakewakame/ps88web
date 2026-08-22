@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import * as CodeStore from "../controller/CodeStore";
-import { parseSegments, pickCode } from "../controller/llm/Segments";
-import type { PickedCode, Segment } from "../controller/llm/Segments";
+import type { ChatBlock } from "../controller/llm/Chat";
 import * as Settings from "../controller/llm/Settings";
 import { useChat } from "../hooks/useChat";
 import type { ChatEntry } from "../hooks/useChat";
@@ -25,7 +24,7 @@ type ChatPanelArgs = {
 export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   const { settings, loaded } = useLLMSettings();
   const ready = Settings.isReady(settings);
-  const { entries, streaming, error, send, stop, clear } = useChat();
+  const { entries, streaming, error, code, send, stop, clear } = useChat();
   const processorError = useProcessorError();
   const [input, setInput] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -64,28 +63,19 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
     CodeStore.set(code, true);
   }, []);
 
-  // 回答にコードブロックが出そろった時点で、そのままエディタへ反映する。
-  // pickCode は閉じていないブロックを選ばないため、ストリーミング途中の
-  // 書きかけのコードがビルドされることはない
-  const latest = entries.at(-1);
-  const picked: PickedCode | null =
-    latest?.role === "assistant" ? pickCode(latest.content) : null;
-  const latestCode = picked?.type === "code" ? picked.code : null;
+  // コードが最後まで届いた時点で、そのままエディタへ反映する。
+  // 書きかけのコードは useChat から流れてこないため、途中のものが
+  // ビルドされることはない
   useEffect(() => {
     // すでに同じ内容なら触らない。ここを「前回反映したコード」ではなく
     // 現在のコードと比べているのは、反映したあとにユーザーが手で書き換えた
     // 場合や、会話を消してもう一度同じコードを受け取った場合にも、
     // 意図どおり反映されるようにするため
-    if (latestCode == null || latestCode === CodeStore.get()) {
+    if (code == null || code === CodeStore.get()) {
       return;
     }
-    applyCode(latestCode);
-  }, [latestCode, applyCode]);
-
-  // 反映しなかったときは理由を出す。黙って何も起きないと、壊れているのか
-  // そういう仕様なのかが画面から判断できない。
-  // 書いている途中は当然まだ反映できないので、終わってから出す
-  const notApplied = streaming ? null : describeNotApplied(picked);
+    applyCode(code);
+  }, [code, applyCode]);
 
   // 反映前のコードと入れ替える。戻すのではなく入れ替えにしているのは、
   // 反映後に手で書き直したものを、押し間違いで失わないようにするため
@@ -159,12 +149,6 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
           <div ref={bottomRef} />
         </div>
 
-        {notApplied != null ? (
-          <p className="flex-none px-3 py-2 text-xs text-amber-400 border-t border-zinc-700">
-            {notApplied}
-          </p>
-        ) : null}
-
         {error != null ? (
           <p className="flex-none px-3 py-2 text-xs text-red-400 border-t border-zinc-700">
             {error}
@@ -231,25 +215,6 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   );
 };
 
-/**
- * コードを反映しなかった理由の説明 (null=説明する必要が無い)
- *
- * コードブロックがそもそも無い回答 (質問への答えなど) は、反映されなくて
- * 当たり前なので黙っている
- */
-const describeNotApplied = (picked: PickedCode | null): string | null => {
-  switch (picked?.type) {
-    case "unclosed":
-      return t.chat.notApplied.unclosed;
-    case "notJavaScript":
-      return t.chat.notApplied.notJavaScript;
-    case "notPS88":
-      return t.chat.notApplied.notPS88;
-    default:
-      return null;
-  }
-};
-
 type IconButtonArgs = {
   icon: string;
   title: string;
@@ -298,42 +263,41 @@ type EntryArgs = {
   entry: ChatEntry;
 };
 
-// ストリーミング中は 1 文字ごとに親が再 render されるが、書き換わるのは
-// 最後の発言だけ。memo を付けないと、過去の発言まで毎回 parseSegments を
-// やり直すことになり、会話が伸びるほど重くなる
+// ストリーミング中は増分が届くたびに親が再 render されるが、書き換わるのは
+// 最後の発言だけ。memo を付けないと、会話が伸びるほど重くなる
 const Entry = memo(({ entry }: EntryArgs) => {
   if (entry.role === "user") {
     return (
       <p className="self-end max-w-11/12 px-3 py-2 rounded-xl bg-zinc-700 text-zinc-100 text-sm whitespace-pre-wrap break-words">
-        {entry.content}
+        {entry.blocks.map((block) => (block.type === "text" ? block.text : ""))}
       </p>
     );
   }
   return (
     <div className="flex flex-col gap-2">
-      {parseSegments(entry.content).map((segment, i) => (
-        <SegmentView key={i} segment={segment} />
+      {entry.blocks.map((block, i) => (
+        <BlockView key={i} block={block} />
       ))}
     </div>
   );
 });
 
-type SegmentViewArgs = {
-  segment: Segment;
+type BlockViewArgs = {
+  block: ChatBlock;
 };
 
-const SegmentView = ({ segment }: SegmentViewArgs) => {
-  if (segment.type === "text") {
+const BlockView = ({ block }: BlockViewArgs) => {
+  if (block.type === "text") {
     return (
       <p className="text-sm text-zinc-200 whitespace-pre-wrap break-words">
-        {segment.text}
+        {block.text}
       </p>
     );
   }
   return (
     <div className="rounded-md bg-zinc-900 border border-zinc-700 overflow-hidden">
       <pre className="p-2 max-h-48 overflow-auto text-xs text-zinc-300">
-        <code>{segment.code}</code>
+        <code>{block.code}</code>
       </pre>
     </div>
   );

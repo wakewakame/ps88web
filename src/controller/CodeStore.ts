@@ -42,7 +42,9 @@ const notify = () => {
   }
 };
 
-let hotReloadTimeout: number | undefined;
+// ブラウザの setTimeout は number を返すが、依存に含まれる型定義の都合で
+// Node の型 (Timeout) が見えていることがある。どちらでも通る形にしておく
+let hotReloadTimeout: ReturnType<typeof setTimeout> | undefined;
 
 /** 現在のコードを返す */
 export const get = () => code;

@@ -1,6 +1,7 @@
+import type { Api, Model } from "@earendil-works/pi-ai";
 import * as Storage from "../Storage.ts";
 import { DEFAULT_PROVIDER, findProvider } from "./Providers.ts";
-import type { Connection } from "./Client.ts";
+import type { Connection } from "./ModelList.ts";
 
 const SETTINGS_STORAGE_KEY = "llm";
 
@@ -164,10 +165,51 @@ export const isReady = (settings: Settings): boolean => {
   );
 };
 
-/** 設定から接続情報を作る */
+/** モデルの一覧を引くための接続情報を作る */
 export const toConnection = (settings: Settings): Connection => ({
   protocol: findProvider(settings.providerId).protocol,
   baseURL: settings.baseURL,
   apiKey: settings.apiKey,
-  model: settings.model,
 });
+
+/**
+ * 出力の上限
+ *
+ * Anthropic は必須のため何かを入れる必要がある。OpenAI 互換の側へは送らず、
+ * 接続先の既定に任せる (モデルごとの上限が分からないまま大きな値を送ると、
+ * 上限の小さいモデルで弾かれるため)
+ */
+const MAX_TOKENS = 16000;
+
+/**
+ * 入力の上限
+ *
+ * 接続先から取れないため、当たり障りのない値を置く。会話をこの長さで
+ * 打ち切る処理は入れていないので、ここが実際の動きを変えることはない
+ */
+const CONTEXT_WINDOW = 128000;
+
+/**
+ * 設定から、pi-ai に渡すモデルを作る
+ *
+ * pi-ai は本来モデルの一覧を持っていて、そこから選ぶ作りになっている。
+ * ここでは接続先から取った名前をユーザーが選ぶため、選ばれたものを毎回
+ * 組み立てて渡す。値段やコンテキスト長は接続先から取れないので、既定を置く
+ */
+export const toModel = (settings: Settings): Model<Api> => {
+  const provider = findProvider(settings.providerId);
+  return {
+    id: settings.model,
+    name: settings.model,
+    api: provider.protocol,
+    // Chat.ts が登録している接続先の識別子と同じ名前にそろえてある
+    provider: provider.protocol,
+    baseUrl: settings.baseURL,
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: CONTEXT_WINDOW,
+    maxTokens: MAX_TOKENS,
+    compat: provider.compat,
+  };
+};

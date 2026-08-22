@@ -20,13 +20,6 @@ export const en = {
     inputPlaceholder: "Describe the synth you want",
     inputPlaceholderNotReady: "Set up the connection first",
     notSetUp: "The connection is not set up yet",
-    notApplied: {
-      unclosed:
-        "The code did not arrive in full, so nothing was applied. Ask again, or ask for a smaller change.",
-      notJavaScript:
-        "There was no JavaScript code block, so nothing was applied.",
-      notPS88: "The code does not use ps88, so nothing was applied.",
-    },
     intro: {
       lead: "Your current code is sent along with your request. For example:",
       examples: [
@@ -66,7 +59,8 @@ export const en = {
   },
 
   client: {
-    emptyResponse: "The response was empty",
+    /** 接続先が理由を返さずに失敗したとき */
+    failed: "The request failed",
     truncated:
       "The answer was cut off at the length limit. It may be longer than the model can output in one go.",
   },

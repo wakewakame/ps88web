@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import * as Client from "../controller/llm/Client";
+import * as ModelList from "../controller/llm/ModelList";
 import * as Settings from "../controller/llm/Settings";
 import { PROVIDERS, findProvider } from "../controller/llm/Providers";
 import { t } from "../i18n";
@@ -44,7 +44,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
     setFetching(true);
     setModelsError(null);
     try {
-      setModels(await Client.listModels(Settings.toConnection(settings)));
+      setModels(await ModelList.listModels(Settings.toConnection(settings)));
     } catch (e) {
       // 一覧を出せない接続先もある。その場合も手で入力すれば使えるため、
       // 失敗を伝えるだけにして入力欄は塞がない

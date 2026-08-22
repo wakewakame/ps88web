@@ -1,3 +1,4 @@
+import type { OpenAICompletionsCompat } from "@earendil-works/pi-ai";
 import { t } from "../../i18n";
 
 /**
@@ -12,8 +13,13 @@ import { t } from "../../i18n";
  * 窓口を持っているため、この 2 つでほとんどの接続先を賄える。
  */
 
-/** リクエストとレスポンスの形式 */
-export type Protocol = "anthropic" | "openai";
+/**
+ * リクエストとレスポンスの形式
+ *
+ * 値は pi-ai の API 実装の名前をそのまま使う。ここで独自の名前を付けて
+ * 変換を挟んでも、増えるのは対応表だけで得るものが無いため
+ */
+export type Protocol = "anthropic-messages" | "openai-completions";
 
 export type Provider = {
   /** 設定に保存する識別子 */
@@ -29,6 +35,14 @@ export type Provider = {
   apiKeyURL: string;
   /** 設定画面に出す補足 */
   note?: string;
+  /**
+   * OpenAI 互換を名乗るサーバー向けの調整
+   *
+   * pi-ai は baseURL から接続先を推測して既定を決めるが、ローカルや任意の
+   * エンドポイントは推測が効かない。素の OpenAI にしか無い項目を送ると
+   * 弾く実装があるため、そういう接続先にだけ明示する
+   */
+  compat?: OpenAICompletionsCompat;
 };
 
 // 使っている人が多いと思われる順に並べる。探す手間が一番少なくなるため
@@ -36,7 +50,7 @@ export const PROVIDERS: Provider[] = [
   {
     id: "openai",
     name: "ChatGPT (OpenAI)",
-    protocol: "openai",
+    protocol: "openai-completions",
     baseURL: "https://api.openai.com/v1",
     model: "",
     apiKeyURL: "https://platform.openai.com/api-keys",
@@ -44,7 +58,7 @@ export const PROVIDERS: Provider[] = [
   {
     id: "gemini",
     name: "Gemini (Google)",
-    protocol: "openai",
+    protocol: "openai-completions",
     // Google が用意している OpenAI 互換の窓口。
     // 独自形式の API もあるが、こちらなら OpenAI 用の実装をそのまま使える
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -54,7 +68,7 @@ export const PROVIDERS: Provider[] = [
   {
     id: "anthropic",
     name: "Claude (Anthropic)",
-    protocol: "anthropic",
+    protocol: "anthropic-messages",
     baseURL: "https://api.anthropic.com",
     model: "claude-opus-5",
     apiKeyURL: "https://console.anthropic.com/settings/keys",
@@ -62,7 +76,7 @@ export const PROVIDERS: Provider[] = [
   {
     id: "openrouter",
     name: "OpenRouter",
-    protocol: "openai",
+    protocol: "openai-completions",
     baseURL: "https://openrouter.ai/api/v1",
     model: "",
     apiKeyURL: "https://openrouter.ai/keys",
@@ -71,19 +85,23 @@ export const PROVIDERS: Provider[] = [
   {
     id: "local",
     name: t.providers.localName,
-    protocol: "openai",
+    protocol: "openai-completions",
     baseURL: "http://localhost:11434/v1",
     model: "",
     apiKeyURL: "",
     note: t.providers.localNote,
+    // Ollama や LM Studio は developer ロールと reasoning_effort を解さない
+    compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
   },
   {
     id: "custom",
     name: t.providers.otherName,
-    protocol: "openai",
+    protocol: "openai-completions",
     baseURL: "",
     model: "",
     apiKeyURL: "",
+    // どんなサーバーが来るか分からないため、ローカルと同じく控えめに送る
+    compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
   },
 ];
 

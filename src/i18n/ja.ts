@@ -17,13 +17,6 @@ export const ja: Messages = {
     inputPlaceholder: "こんな感じのシンセを書いて",
     inputPlaceholderNotReady: "先に接続の設定をしてください",
     notSetUp: "接続先の設定が未完了です",
-    notApplied: {
-      unclosed:
-        "コードが最後まで届かなかったため反映していません。もう一度頼むか、短く分けて頼んでみてください。",
-      notJavaScript:
-        "JavaScript のコードブロックが無かったため反映していません。",
-      notPS88: "ps88 を使っていないコードだったため反映していません。",
-    },
     intro: {
       lead: "いまのコードを渡したうえで、要望を伝えます。例えば",
       examples: [
@@ -63,7 +56,7 @@ export const ja: Messages = {
   },
 
   client: {
-    emptyResponse: "レスポンスが空です",
+    failed: "リクエストに失敗しました",
     truncated:
       "回答が長さの上限で切れました。モデルの出力上限を超えている可能性があります。",
   },

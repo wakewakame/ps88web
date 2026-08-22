@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultSettings,
   recordCurrent,
+  toModel,
   withProvider,
   type Settings,
 } from "./Settings.ts";
@@ -75,5 +76,38 @@ describe("defaultSettings", () => {
   it("一番上の接続先を初期値にする", () => {
     // 並びは使っている人が多い順。初期値もそれに従う
     expect(defaultSettings().providerId).toBe("openai");
+  });
+});
+
+describe("toModel", () => {
+  it("接続先の形式と、入力されたモデルとエンドポイントを載せる", () => {
+    const model = toModel({ ...claude(), model: "claude-x" });
+    expect(model.api).toBe("anthropic-messages");
+    // Chat.ts が登録している識別子と一致していないと振り分けられない
+    expect(model.provider).toBe("anthropic-messages");
+    expect(model.id).toBe("claude-x");
+    expect(model.baseUrl).toBe("https://api.anthropic.com");
+  });
+
+  it("Anthropic に必要な出力上限を持たせる", () => {
+    // Anthropic は max_tokens が必須で、pi-ai はここから読む
+    expect(toModel(claude()).maxTokens).toBeGreaterThan(0);
+  });
+
+  it("OpenAI 互換は openai-completions として扱う", () => {
+    // Gemini も OpenRouter も互換窓口を使うため、ここは 1 つで足りる
+    const model = toModel(withProvider(claude(), "gemini"));
+    expect(model.api).toBe("openai-completions");
+    expect(model.provider).toBe("openai-completions");
+  });
+
+  it("推測の効かない接続先にだけ互換の調整を付ける", () => {
+    // Ollama などは developer ロールと reasoning_effort を解さない
+    expect(toModel(withProvider(claude(), "local")).compat).toEqual({
+      supportsDeveloperRole: false,
+      supportsReasoningEffort: false,
+    });
+    // 素の OpenAI は pi-ai が baseURL から判断できるので何も指定しない
+    expect(toModel(withProvider(claude(), "openai")).compat).toBeUndefined();
   });
 });
