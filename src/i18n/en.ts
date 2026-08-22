@@ -43,6 +43,11 @@ export const en = {
     rememberApiKey: "Save it in this browser",
     model: "Model",
     modelPlaceholder: "Pick from the list, or type it",
+    /** 一覧から選ぶときの、まだ選んでいない状態 */
+    modelPick: "Pick a model",
+    /** 選択と入力を行き来するリンク */
+    modelTypeIn: "Type a model name instead",
+    modelFromList: "Pick from the list instead",
     fetchModels: "List",
     fetchingModels: "Loading",
     apiKeyFirst: "Enter the API key first",

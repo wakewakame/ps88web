@@ -30,7 +30,17 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
   const [models, setModels] = useState<string[] | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
+  /**
+   * 一覧があっても手で入力するか
+   *
+   * 一覧に出ないモデルが使えることがある (proxy 越しや、一覧を絞って返す
+   * 接続先など)。一覧が取れたら選ぶだけで済ませたいが、入力の道は残す
+   */
+  const [typing, setTyping] = useState(false);
   const modelListId = useId();
+
+  // 一覧から選べる状態か
+  const selectable = models != null && models.length > 0 && !typing;
 
   const onProviderChange = (id: string) => {
     // エンドポイントもキーもモデルも接続先ごとに別物のため入れ替える。
@@ -38,6 +48,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
     onChange(Settings.withProvider(settings, id));
     setModels(null);
     setModelsError(null);
+    setTyping(false);
   };
 
   const onFetchModels = async () => {
@@ -135,14 +146,41 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
           {t.settings.model}
         </label>
         <div className="flex flex-row gap-2">
-          <input
-            id={`${modelListId}-model`}
-            className={FIELD_CLASS}
-            list={modelListId}
-            placeholder={t.settings.modelPlaceholder}
-            value={settings.model}
-            onChange={(e) => onChange({ ...settings, model: e.target.value })}
-          />
+          {/* 一覧が取れたら選択に切り替える。datalist は何も打っていない
+              うちは候補を出さず、一覧があること自体に気付けないため */}
+          {selectable ? (
+            <select
+              id={`${modelListId}-model`}
+              className={FIELD_CLASS}
+              value={settings.model}
+              onChange={(e) => onChange({ ...settings, model: e.target.value })}
+            >
+              {/* 未選択のまま開いたときに、先頭のモデルを選んだことに
+                  ならないようにする */}
+              {settings.model === "" ? (
+                <option value="">{t.settings.modelPick}</option>
+              ) : null}
+              {/* 一覧に無い名前が入っていても、選択に切り替えた拍子に
+                  消えないようにする */}
+              {settings.model !== "" && !models.includes(settings.model) ? (
+                <option value={settings.model}>{settings.model}</option>
+              ) : null}
+              {models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={`${modelListId}-model`}
+              className={FIELD_CLASS}
+              list={modelListId}
+              placeholder={t.settings.modelPlaceholder}
+              value={settings.model}
+              onChange={(e) => onChange({ ...settings, model: e.target.value })}
+            />
+          )}
           <button
             className="
               px-2 rounded-md bg-zinc-700 hover:bg-zinc-600 text-zinc-100
@@ -163,6 +201,15 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
             <option key={model} value={model} />
           ))}
         </datalist>
+        {models != null && models.length > 0 ? (
+          <button
+            type="button"
+            className="self-start text-xs text-sky-600 cursor-pointer"
+            onClick={() => setTyping(!typing)}
+          >
+            {selectable ? t.settings.modelTypeIn : t.settings.modelFromList}
+          </button>
+        ) : null}
         {modelsError != null ? (
           <p className="text-xs text-red-400">
             {t.settings.modelsFailed(modelsError)}
