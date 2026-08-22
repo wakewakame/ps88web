@@ -43,6 +43,25 @@ You can also use microphone and MIDI input, and even render GUIs.
 - [API docs](https://wakewakame.github.io/ps88web/docs/variables/ps88.html)
 - [examples](https://wakewakame.github.io/ps88web/examples/index.html)
 
+# Let an AI write the code
+
+Open the chat panel from the ✨ button in the toolbar and ask for what you want,
+for example "make it a sawtooth synth". The code you get back is applied to the
+editor right away, so the sound changes immediately.
+
+The AI runs on your own account, so you need to bring an API key. Any of these
+will work:
+
+- ChatGPT (OpenAI)
+- Gemini (Google)
+- Claude (Anthropic)
+- OpenRouter
+- Anything with an OpenAI-compatible API (Ollama, LM Studio, and so on)
+
+Note that API access is billed separately from subscription plans such as
+ChatGPT Plus. PS88 web has no server of its own, so your key goes straight from
+the browser to the provider you picked — it never reaches PS88 web.
+
 # Run locally
 
 ```sh

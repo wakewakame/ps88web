@@ -1,6 +1,6 @@
 import * as Types from "./AudioControllerTypes.ts";
 import workerUrl from "./AudioControllerWorker.ts?worker&url";
-import * as Storage from "./Storage.ts";
+import * as Storage from "../Storage.ts";
 
 // ps88.save() / ps88.load() が読み書きするデータの保存先
 const SAVE_STORAGE_KEY = "save";
@@ -39,6 +39,11 @@ let shapes: Types.Shape[] = [];
 // 送信を高々 1 件に制限し、追いつかない時は fps が落ちるだけにする
 let drawPending = false;
 
+// 直前に起きたユーザーコードの実行エラー (null=エラー無し)
+// 同じエラーが毎フレーム届くことがあるため、最新の 1 件だけを保持する
+let lastError: Types.RecvMessageError | null = null;
+const errorListeners = new Set<() => void>();
+
 // --- worker との通信 ------------------------------------------------------
 
 const sendMessage = (message: Types.SendMessage) => {
@@ -59,17 +64,28 @@ const onRecvMessage = (event: MessageEvent) => {
       Storage.store(SAVE_STORAGE_KEY, message.data);
       return;
     }
+    case "error": {
+      setLastError(message);
+      return;
+    }
     default: {
       Types.assertNever(message);
     }
   }
 };
 
-// MIDI デバイスからのイベント
-// removeEventListener で解除できるよう、参照が変わらないここに置く
-const onMIDIEvent = (event: MIDIMessageEvent) => {
-  if (event.data != null) {
-    sendMIDIMessage(event.data);
+const setLastError = (error: Types.RecvMessageError | null) => {
+  // useSyncExternalStore は参照の同一性で変化を判定するため、
+  // 内容が同じうちは同じオブジェクトを返し続ける
+  if (
+    lastError?.phase === error?.phase &&
+    lastError?.message === error?.message
+  ) {
+    return;
+  }
+  lastError = error;
+  for (const listener of errorListeners) {
+    listener();
   }
 };
 
@@ -180,6 +196,14 @@ export const setOutput = async (
   return true;
 };
 
+// MIDI デバイスからのイベント
+// removeEventListener で解除できるよう、参照が変わらないここに置く
+const onMIDIEvent = (event: MIDIMessageEvent) => {
+  if (event.data != null) {
+    sendMIDIMessage(event.data);
+  }
+};
+
 /**
  * MIDI の指定
  *
@@ -244,8 +268,30 @@ export const sendMIDIMessage = (data: Uint8Array) => {
  */
 export const build = (code: string) => {
   lastCode = code;
+  // 前のコードのエラーは、コードを差し替えた時点で無効になる
+  setLastError(null);
   sendMessage({ type: "build", code });
 };
+
+/** 直前に起きたユーザーコードの実行エラーを返す (null=エラー無し) */
+export const getLastError = () => lastError;
+
+/** ユーザーコードの実行エラーを購読する */
+export const subscribeError = (listener: () => void) => {
+  errorListeners.add(listener);
+  return () => {
+    errorListeners.delete(listener);
+  };
+};
+
+/**
+ * 記録しているエラーを消す
+ *
+ * コードを編集した時点で、それまでのエラーは古い内容についてのものになる。
+ * ビルドは入力が止まるまで待つため、その間もエラーが残っていると、
+ * 直したコードに直す前のエラーが添えられて AI に渡ってしまう
+ */
+export const clearError = () => setLastError(null);
 
 /**
  * 描画の要求

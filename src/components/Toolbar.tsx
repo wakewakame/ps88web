@@ -12,12 +12,16 @@ type ToolbarArgs = {
   devices: AudioDeviceControls;
   editorVisible: boolean;
   onEditorVisibleChange: (visible: boolean) => void;
+  chatVisible: boolean;
+  onChatVisibleChange: (visible: boolean) => void;
 };
 
 export const Toolbar = ({
   devices,
   editorVisible,
   onEditorVisibleChange,
+  chatVisible,
+  onChatVisibleChange,
 }: ToolbarArgs) => {
   return (
     <div className="w-full h-16 py-2 box-border flex-none flex flex-row gap-4 items-center justify-center relative">
@@ -42,6 +46,11 @@ export const Toolbar = ({
         icon="code"
         pressed={editorVisible}
         onChange={onEditorVisibleChange}
+      />
+      <ButtonSelector
+        icon="auto_awesome"
+        pressed={chatVisible}
+        onChange={onChatVisibleChange}
       />
     </div>
   );
