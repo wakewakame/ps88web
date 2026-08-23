@@ -9,8 +9,8 @@ import { t } from "../../i18n";
  * ユーザー自身に用意してもらう (BYOK)。
  *
  * プロトコルは Anthropic 形式と OpenAI 互換形式の 2 つだけを実装する。
- * Gemini・OpenRouter・ローカルの Ollama / LM Studio はいずれも OpenAI 互換の
- * 窓口を持っているため、この 2 つでほとんどの接続先を賄える。
+ * ローカルの Ollama / LM Studio をはじめ、多くの接続先が OpenAI 互換の窓口を
+ * 持っているため、この 2 つでほとんどの接続先を賄える。
  */
 
 /**
@@ -56,16 +56,6 @@ export const PROVIDERS: Provider[] = [
     apiKeyURL: "https://platform.openai.com/api-keys",
   },
   {
-    id: "gemini",
-    name: "Gemini (Google)",
-    protocol: "openai-completions",
-    // Google が用意している OpenAI 互換の窓口。
-    // 独自形式の API もあるが、こちらなら OpenAI 用の実装をそのまま使える
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
-    model: "",
-    apiKeyURL: "https://aistudio.google.com/apikey",
-  },
-  {
     id: "anthropic",
     name: "Claude (Anthropic)",
     protocol: "anthropic-messages",
@@ -74,33 +64,17 @@ export const PROVIDERS: Provider[] = [
     apiKeyURL: "https://console.anthropic.com/settings/keys",
   },
   {
-    id: "openrouter",
-    name: "OpenRouter",
-    protocol: "openai-completions",
-    baseURL: "https://openrouter.ai/api/v1",
-    model: "",
-    apiKeyURL: "https://openrouter.ai/keys",
-    note: t.providers.openrouterNote,
-  },
-  {
-    id: "local",
-    name: t.providers.localName,
-    protocol: "openai-completions",
-    baseURL: "http://localhost:11434/v1",
-    model: "",
-    apiKeyURL: "",
-    note: t.providers.localNote,
-    // Ollama や LM Studio は developer ロールと reasoning_effort を解さない
-    compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
-  },
-  {
     id: "custom",
     name: t.providers.otherName,
     protocol: "openai-completions",
+    // 何が来るか分からないため既定値は持たない。
+    // よく使われる Ollama のエンドポイントは note で案内する
     baseURL: "",
     model: "",
     apiKeyURL: "",
-    // どんなサーバーが来るか分からないため、ローカルと同じく控えめに送る
+    note: t.providers.otherNote,
+    // どんなサーバーが来るか分からないため控えめに送る。
+    // 実際 Ollama や LM Studio は developer ロールと reasoning_effort を解さない
     compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
   },
 ];

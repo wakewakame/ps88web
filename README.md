@@ -53,9 +53,7 @@ The AI runs on your own account, so you need to bring an API key. Any of these
 will work:
 
 - ChatGPT (OpenAI)
-- Gemini (Google)
 - Claude (Anthropic)
-- OpenRouter
 - Anything with an OpenAI-compatible API (Ollama, LM Studio, and so on)
 
 Note that API access is billed separately from subscription plans such as

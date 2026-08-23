@@ -51,7 +51,10 @@ describe("isReady", () => {
 
   it("キーが要らない接続先ではモデルだけで使える", () => {
     // ローカル LLM は認証を求めないことが多い
-    const local = edit(select(defaultSettings(), "local"), { model: "llama" });
+    const local = edit(select(defaultSettings(), "custom"), {
+      baseURL: "http://localhost:11434/v1",
+      model: "llama",
+    });
     expect(isReady(local)).toBe(true);
   });
 });
@@ -66,7 +69,7 @@ describe("toConnection", () => {
       compat: undefined,
     });
     // 推測の効かない接続先の調整を落とすと、Ollama などが黙って動かなくなる
-    expect(toConnection(select(claude(), "local")).compat).toEqual({
+    expect(toConnection(select(claude(), "custom")).compat).toEqual({
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
     });

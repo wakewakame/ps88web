@@ -52,10 +52,9 @@ export const ja: Messages = {
   },
 
   providers: {
-    openrouterNote: "1 つのキーで複数社のモデルを選べます",
-    localName: "ローカル (Ollama など)",
-    localNote: "OpenAI 互換の API を持つローカルのサーバーに接続します",
-    otherName: "その他 (OpenAI 互換)",
+    otherName: "その他 (ローカル / OpenAI 互換)",
+    otherNote:
+      "OpenAI 互換の API を持つサーバーに接続します。Ollama なら http://localhost:11434/v1 です",
   },
 
   client: {

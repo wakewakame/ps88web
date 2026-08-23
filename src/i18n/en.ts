@@ -57,10 +57,9 @@ export const en = {
   },
 
   providers: {
-    openrouterNote: "One key for models from several vendors",
-    localName: "Local (Ollama and similar)",
-    localNote: "Connects to a local server with an OpenAI-compatible API",
-    otherName: "Other (OpenAI-compatible)",
+    otherName: "Other (local or OpenAI-compatible)",
+    otherNote:
+      "Connects to any server with an OpenAI-compatible API. Ollama listens on http://localhost:11434/v1",
   },
 
   client: {

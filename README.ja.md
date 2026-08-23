@@ -53,9 +53,7 @@ ps88.audio((ctx) => {
 以下のいずれにも接続できます。
 
 - ChatGPT (OpenAI)
-- Gemini (Google)
 - Claude (Anthropic)
-- OpenRouter
 - OpenAI 互換の API を持つもの (Ollama や LM Studio など)
 
 なお月額プラン (ChatGPT Plus など) とは別に、API の利用登録が必要です。
