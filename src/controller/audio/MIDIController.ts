@@ -1,8 +1,8 @@
 import * as AudioController from "./AudioController.ts";
 import * as MIDIDevices from "./MIDIDevices.ts";
 import { enqueue } from "./Queue.ts";
-import { createStore } from "./Store.ts";
-import * as Storage from "./Storage.ts";
+import { createStore } from "../Store.ts";
+import * as Storage from "../Storage.ts";
 
 // MIDI の実行時の状態と、その永続化を持つ。
 //

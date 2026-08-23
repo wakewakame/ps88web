@@ -1,6 +1,6 @@
 /// <reference types="audioworklet" />
 import * as Types from "./AudioControllerTypes.ts";
-import type * as PS88 from "../../lib/ps88.d.ts";
+import type * as PS88 from "../../../lib/ps88.d.ts";
 
 class WaveformProcessor extends AudioWorkletProcessor {
   audioCallback?: PS88.AudioFunc;
@@ -11,10 +11,6 @@ class WaveformProcessor extends AudioWorkletProcessor {
   constructor(args: AudioWorkletNodeOptions) {
     super();
     this.save = (args.processorOptions as Types.ProcessorOptions)?.save ?? null;
-
-    const recvMessage = (message: Types.RecvMessage) => {
-      this.port.postMessage(message);
-    };
 
     const api: PS88.PS88 = {
       audio: (callback: PS88.AudioFunc) => {
@@ -41,7 +37,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
             "argument must be a Uint8Array, string, null, or undefined",
           );
         }
-        recvMessage({ type: "save", data: this.save });
+        this.recvMessage({ type: "save", data: this.save });
       },
       load: () => this.save?.data ?? null,
     };
@@ -55,13 +51,13 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             this.audioCallback = undefined;
             this.guiCallback = undefined;
-            console.error(e);
+            this.reportError("build", e);
           }
           return;
         }
         case "draw": {
           if (this.guiCallback == undefined) {
-            recvMessage({ type: "draw", shapes: null });
+            this.recvMessage({ type: "draw", shapes: null });
             return;
           }
           const shapes: Types.Shape[] = [];
@@ -97,9 +93,9 @@ class WaveformProcessor extends AudioWorkletProcessor {
           } catch (e) {
             // gui の失敗で audio まで止めない
             this.guiCallback = undefined;
-            console.error(e);
+            this.reportError("gui", e);
           }
-          recvMessage({ type: "draw", shapes });
+          this.recvMessage({ type: "draw", shapes });
           return;
         }
         case "midi": {
@@ -112,6 +108,23 @@ class WaveformProcessor extends AudioWorkletProcessor {
       }
     });
     this.port.start();
+  }
+
+  /** main 側へメッセージを送る (postMessage は型が付かないためここを通す) */
+  recvMessage(message: Types.RecvMessage) {
+    this.port.postMessage(message);
+  }
+
+  /**
+   * 例外を console と main 側の両方へ伝える
+   *
+   * AudioWorklet の console は開発者ツールを開かないと見えないため、
+   * 画面や AI チャットからも拾えるようにしておく
+   */
+  reportError(phase: Types.RecvMessageError["phase"], e: unknown) {
+    console.error(e);
+    const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    this.recvMessage({ type: "error", phase, message });
   }
 
   process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
@@ -151,7 +164,7 @@ class WaveformProcessor extends AudioWorkletProcessor {
       } catch (e) {
         // audio の失敗で gui まで止めない
         this.audioCallback = undefined;
-        console.error(e);
+        this.reportError("audio", e);
       }
     }
     // audioCallback が無い場合は消費者がいないため、溜めずに捨てる

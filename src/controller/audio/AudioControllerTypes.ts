@@ -1,4 +1,4 @@
-import type * as PS88 from "../../lib/ps88.d.ts";
+import type * as PS88 from "../../../lib/ps88.d.ts";
 
 /**
  * 判別可能ユニオンの網羅性をコンパイル時に検査する
@@ -41,7 +41,7 @@ export type SendMessageMIDI = {
 };
 
 // worker から受信するメッセージの型
-export type RecvMessage = RecvMessageDraw | RecvMessageSave;
+export type RecvMessage = RecvMessageDraw | RecvMessageSave | RecvMessageError;
 export type RecvMessageDraw = {
   type: "draw";
   // null は「描画しなかった」ことを表し、この場合は前回の内容を保持する。
@@ -51,6 +51,13 @@ export type RecvMessageDraw = {
 export type RecvMessageSave = {
   type: "save";
   data: SaveData;
+};
+export type RecvMessageError = {
+  type: "error";
+  // どの段階で失敗したか
+  // build=コードの読み込み, audio=波形の生成, gui=画面の描画
+  phase: "build" | "audio" | "gui";
+  message: string;
 };
 
 // 永続化データの型

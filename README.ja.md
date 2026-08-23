@@ -43,6 +43,25 @@ ps88.audio((ctx) => {
 - [API docs](https://wakewakame.github.io/ps88web/docs/variables/ps88.html)
 - [examples](https://wakewakame.github.io/ps88web/examples/index.html)
 
+# AI にコードを書いてもらう
+
+ツールバーの ✨ からチャット欄を開くと、「ノコギリ波のシンセにして」のように
+頼んでコードを書いてもらえます。書かれたコードはそのままエディタに反映され、
+すぐに音が変わります。
+
+計算はあなた自身の AI アカウントで行われるため、API キーの用意が必要です。
+以下のいずれにも接続できます。
+
+- ChatGPT (OpenAI)
+- Gemini (Google)
+- Claude (Anthropic)
+- OpenRouter
+- OpenAI 互換の API を持つもの (Ollama や LM Studio など)
+
+なお月額プラン (ChatGPT Plus など) とは別に、API の利用登録が必要です。
+ps88web にはサーバーが無いため、キーはブラウザから接続先へ直接送られます。
+ps88web の側にキーが渡ることはありません。
+
 # ローカルでの実行方法
 
 ```sh
