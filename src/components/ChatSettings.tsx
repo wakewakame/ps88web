@@ -9,12 +9,12 @@ type ChatSettingsArgs = {
   onChange: (settings: Settings.Settings) => void;
 };
 
+const LABEL_CLASS = "text-xs text-zinc-400";
+
 const FIELD_CLASS = `
   w-full px-2 py-1 rounded-md bg-zinc-900 text-zinc-100 text-sm
   border border-zinc-700 focus:border-blue-400 focus:outline-none
 `;
-
-const LABEL_CLASS = "text-xs text-zinc-400";
 
 /**
  * AI の接続設定
@@ -24,9 +24,9 @@ const LABEL_CLASS = "text-xs text-zinc-400";
  */
 export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
   const provider = findProvider(settings.providerId);
-  // キーが要る接続先でキーが空のまま一覧を引くと、接続先ごとにばらばらの
-  // 分かりにくいエラーが返る (Gemini は 404 など)。先にボタンを止めておく
-  const missingApiKey = provider.apiKeyURL !== "" && settings.apiKey === "";
+  // いま選んでいる接続先への入力内容 (接続先を切り替えると中身も入れ替わる)
+  const current = Settings.current(settings);
+  const missingApiKey = provider.apiKeyURL !== "" && current.apiKey === "";
   const [models, setModels] = useState<string[] | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -43,9 +43,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
   const selectable = models != null && models.length > 0 && !typing;
 
   const onProviderChange = (id: string) => {
-    // エンドポイントもキーもモデルも接続先ごとに別物のため入れ替える。
-    // 以前その接続先に入力した内容があれば Settings 側が戻してくれる
-    onChange(Settings.withProvider(settings, id));
+    onChange({ ...settings, providerId: id });
     setModels(null);
     setModelsError(null);
     setTyping(false);
@@ -98,8 +96,10 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
           className={FIELD_CLASS}
           type="url"
           placeholder="https://..."
-          value={settings.baseURL}
-          onChange={(e) => onChange({ ...settings, baseURL: e.target.value })}
+          value={current.baseURL}
+          onChange={(e) =>
+            onChange(Settings.edit(settings, { baseURL: e.target.value }))
+          }
         />
       </div>
 
@@ -113,9 +113,10 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
             className={FIELD_CLASS}
             type="password"
             autoComplete="off"
-            placeholder="sk-..."
-            value={settings.apiKey}
-            onChange={(e) => onChange({ ...settings, apiKey: e.target.value })}
+            value={current.apiKey}
+            onChange={(e) =>
+              onChange(Settings.edit(settings, { apiKey: e.target.value }))
+            }
           />
           <a
             className="text-xs text-sky-600"
@@ -146,24 +147,24 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
           {t.settings.model}
         </label>
         <div className="flex flex-row gap-2">
-          {/* 一覧が取れたら選択に切り替える。datalist は何も打っていない
-              うちは候補を出さず、一覧があること自体に気付けないため */}
           {selectable ? (
             <select
               id={`${modelListId}-model`}
               className={FIELD_CLASS}
-              value={settings.model}
-              onChange={(e) => onChange({ ...settings, model: e.target.value })}
+              value={current.model}
+              onChange={(e) =>
+                onChange(Settings.edit(settings, { model: e.target.value }))
+              }
             >
               {/* 未選択のまま開いたときに、先頭のモデルを選んだことに
                   ならないようにする */}
-              {settings.model === "" ? (
+              {current.model === "" ? (
                 <option value="">{t.settings.modelPick}</option>
               ) : null}
               {/* 一覧に無い名前が入っていても、選択に切り替えた拍子に
                   消えないようにする */}
-              {settings.model !== "" && !models.includes(settings.model) ? (
-                <option value={settings.model}>{settings.model}</option>
+              {current.model !== "" && !models.includes(current.model) ? (
+                <option value={current.model}>{current.model}</option>
               ) : null}
               {models.map((model) => (
                 <option key={model} value={model}>
@@ -177,8 +178,10 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
               className={FIELD_CLASS}
               list={modelListId}
               placeholder={t.settings.modelPlaceholder}
-              value={settings.model}
-              onChange={(e) => onChange({ ...settings, model: e.target.value })}
+              value={current.model}
+              onChange={(e) =>
+                onChange(Settings.edit(settings, { model: e.target.value }))
+              }
             />
           )}
           <button
@@ -188,7 +191,7 @@ export const ChatSettings = ({ settings, onChange }: ChatSettingsArgs) => {
               disabled:text-zinc-500 disabled:cursor-not-allowed
               transition-all duration-150 ease-in-out
             "
-            disabled={fetching || settings.baseURL === "" || missingApiKey}
+            disabled={fetching || current.baseURL === "" || missingApiKey}
             title={missingApiKey ? t.settings.apiKeyFirst : undefined}
             onClick={() => void onFetchModels()}
           >

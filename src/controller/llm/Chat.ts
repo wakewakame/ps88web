@@ -4,7 +4,6 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import type {
   Api,
   AssistantMessage,
-  AssistantMessageEventStream,
   Message,
   Model,
   ToolResultMessage,
@@ -15,7 +14,7 @@ import {
   toCode,
   writeCodeTool,
 } from "./Tools.ts";
-import type { Protocol } from "./Providers.ts";
+import type { Connection, Protocol } from "./Providers.ts";
 import { t } from "../../i18n";
 
 /**
@@ -26,7 +25,7 @@ import { t } from "../../i18n";
  * 登録することと、届いたイベントを画面に出せる形へ落とすことだけ。
  *
  * 登録するのはプロトコルの実装だけで、モデルは持たせない。モデルの一覧は
- * 接続先から取り、選ばれたものを Settings が組み立てて渡す (ModelList.ts)
+ * 接続先から取り (ModelList.ts)、選ばれた名前を毎回組み立てて渡す
  */
 
 /**
@@ -93,20 +92,79 @@ export type StreamHandlers = {
 };
 
 /**
- * ストリームを読み進めて、届いたものを渡す
+ * 出力の上限
+ *
+ * Anthropic は必須のため何かを入れる必要がある。OpenAI 互換の側へは送らず、
+ * 接続先の既定に任せる (モデルごとの上限が分からないまま大きな値を送ると、
+ * 上限の小さいモデルで弾かれるため)
+ */
+const MAX_TOKENS = 16000;
+
+/**
+ * 入力の上限
+ *
+ * 接続先から取れないため、当たり障りのない値を置く。会話をこの長さで
+ * 打ち切る処理は入れていないので、ここが実際の動きを変えることはない
+ */
+const CONTEXT_WINDOW = 128000;
+
+/**
+ * pi-ai に渡すモデルを組み立てる
+ *
+ * pi-ai は本来モデルの一覧を持っていて、そこから選ぶ作りになっている。
+ * ここでは接続先から取った名前をユーザーが選ぶため、選ばれたものを毎回
+ * 組み立てて渡す。値段やコンテキスト長は接続先から取れないので、既定を置く
+ */
+const toModel = (connection: Connection, model: string): Model<Api> => ({
+  id: model,
+  name: model,
+  api: connection.protocol,
+  // 上で登録している接続先の識別子と同じ名前にそろえてある
+  provider: connection.protocol,
+  baseUrl: connection.baseURL,
+  reasoning: false,
+  input: ["text"],
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  contextWindow: CONTEXT_WINDOW,
+  maxTokens: MAX_TOKENS,
+  compat: connection.compat,
+});
+
+/**
+ * AI との会話 (ストリーミング)
  *
  * pi-ai は失敗しても例外を投げず、最後のメッセージに理由を載せて返す。
  * 中断も同じ扱いになるため、呼び出し側は stopReason を見て判断する
+ *
+ * @param connection - 接続先 (Settings.toConnection が作る)
+ * @param model - 選ばれたモデルの名前
+ * @param system - システムプロンプト
+ * @param messages - これまでの会話
+ * @param handlers - 受け取り口
+ * @param signal - 中断用
  */
-export const consume = async (
-  stream: AssistantMessageEventStream,
+export const streamChat = async (
+  connection: Connection,
+  model: string,
+  system: string,
+  messages: Message[],
   handlers: StreamHandlers,
+  signal: AbortSignal,
 ): Promise<AssistantMessage> => {
+  const stream = models.stream(
+    toModel(connection, model),
+    { systemPrompt: system, messages, tools: [writeCodeTool] },
+    { apiKey: connection.apiKey, signal },
+  );
   for await (const event of stream) {
     if (event.type === "done" || event.type === "error") {
       // 終端は result() で受け取る
       continue;
     }
+    // partial はそこまでに組み上がった回答そのもの。増分を自分で積む必要は
+    // ない (ブロックをまたいでイベントが交互に届くため、積む側に回ると
+    // contentIndex での対応付けが要る)。
+    // 毎回同じオブジェクトが書き換えられて届くため、保持してはいけない
     handlers.onUpdate(toBlocks(event.partial));
     if (event.type === "toolcall_end") {
       // ここで初めて引数が揃う。書きかけのコードを反映しないよう、
@@ -119,33 +177,6 @@ export const consume = async (
   }
   return await stream.result();
 };
-
-/**
- * AI との会話 (ストリーミング)
- *
- * @param model - 接続先とモデル (Settings.toModel が組み立てる)
- * @param apiKey - ユーザーの API キー
- * @param system - システムプロンプト
- * @param messages - これまでの会話
- * @param handlers - 受け取り口
- * @param signal - 中断用
- */
-export const streamChat = (
-  model: Model<Api>,
-  apiKey: string,
-  system: string,
-  messages: Message[],
-  handlers: StreamHandlers,
-  signal: AbortSignal,
-): Promise<AssistantMessage> =>
-  consume(
-    models.stream(
-      model,
-      { systemPrompt: system, messages, tools: [writeCodeTool] },
-      { apiKey, signal },
-    ),
-    handlers,
-  );
 
 /**
  * この回答を会話に残してよいか

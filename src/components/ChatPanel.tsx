@@ -28,8 +28,6 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   const processorError = useProcessorError();
   const [input, setInput] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // 反映する前のコード。行き来できるように保持する
-  const [undoCode, setUndoCode] = useState<string | null>(null);
 
   // 設定が未完了なら開いておく。読み込みを待たずに判断すると、保存済みの
   // 設定がある人にも一瞬だけ設定画面が出てしまう
@@ -59,7 +57,6 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
   };
 
   const applyCode = useCallback((code: string) => {
-    setUndoCode(CodeStore.get());
     CodeStore.set(code, true);
   }, []);
 
@@ -76,17 +73,6 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
     }
     applyCode(code);
   }, [code, applyCode]);
-
-  // 反映前のコードと入れ替える。戻すのではなく入れ替えにしているのは、
-  // 反映後に手で書き直したものを、押し間違いで失わないようにするため
-  const onSwap = () => {
-    if (undoCode == null) {
-      return;
-    }
-    const current = CodeStore.get();
-    CodeStore.set(undoCode, true);
-    setUndoCode(current);
-  };
 
   return (
     // 開閉は幅のアニメーションで行う。中身は幅を固定したまま外側で切り取るため、
@@ -107,20 +93,10 @@ export const ChatPanel = ({ visible }: ChatPanelArgs) => {
       <div className="h-full w-96 max-sm:w-screen flex flex-col select-text bg-zinc-800 border-l border-zinc-700">
         <div className="flex-none flex flex-row items-center gap-2 px-3 py-2 border-b border-zinc-700">
           <span className="text-sm text-zinc-100 grow">{t.chat.title}</span>
-          {undoCode != null ? (
-            <IconButton
-              icon="swap_horiz"
-              title={t.chat.swapWithPrevious}
-              onClick={onSwap}
-            />
-          ) : null}
           <IconButton
             icon="delete_sweep"
             title={t.chat.clearConversation}
-            onClick={() => {
-              clear();
-              setUndoCode(null);
-            }}
+            onClick={() => clear()}
           />
           <IconButton
             icon="settings"
@@ -244,9 +220,6 @@ const Placeholder = ({ ready }: { ready: boolean }) => (
       <>
         <p>{t.chat.intro.lead}</p>
         <ul className="list-disc list-inside">
-          {/* 文言は起動時に決まった定数で、並び替えも増減もしない。
-              添字をキーにして問題が出る場面が無く、文言そのものをキーに
-              すると、訳に同じ文が並んだときに重複してしまう */}
           {t.chat.intro.examples.map((example, i) => (
             <li key={i}>{example}</li>
           ))}

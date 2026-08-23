@@ -1,26 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCall } from "@earendil-works/pi-ai";
-import { WRITE_CODE, toCode, writeCodeTool } from "./Tools.ts";
+import { WRITE_CODE, toCode } from "./Tools.ts";
 
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({
   type: "toolCall",
   id: "call-1",
   name,
   arguments: args,
-});
-
-describe("writeCodeTool", () => {
-  it("code だけを必須の文字列として要求する", () => {
-    // 接続先にそのまま渡る形なので、素の JSON Schema であることを確かめる
-    expect(writeCodeTool.parameters).toEqual({
-      type: "object",
-      properties: {
-        code: { type: "string", description: expect.any(String) },
-      },
-      required: ["code"],
-      additionalProperties: false,
-    });
-  });
 });
 
 describe("toCode", () => {

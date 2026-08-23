@@ -14,5 +14,5 @@ export const useLLMSettings = () => {
   }, []);
 
   // 設定と読み込みの状態は同時にしか変わらないため、まとめて読む
-  return useSyncExternalStore(Settings.subscribe, Settings.getState);
+  return useSyncExternalStore(Settings.subscribe, Settings.getSnapshot);
 };

@@ -58,7 +58,7 @@ export const useChat = () => {
     if (trimmed === "" || abortRef.current != null) {
       return;
     }
-    const { settings } = Settings.getState();
+    const { settings } = Settings.getSnapshot();
     if (!Settings.isReady(settings)) {
       setError(t.chat.notSetUp);
       return;
@@ -97,8 +97,8 @@ export const useChat = () => {
     abortRef.current = abort;
     try {
       const message = await Chat.streamChat(
-        Settings.toModel(settings),
-        settings.apiKey,
+        Settings.toConnection(settings),
+        Settings.current(settings).model,
         Prompt.SYSTEM_PROMPT,
         historyRef.current,
         {

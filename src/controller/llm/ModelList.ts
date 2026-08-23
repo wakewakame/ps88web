@@ -1,4 +1,4 @@
-import type { Protocol } from "./Providers.ts";
+import type { Connection } from "./Providers.ts";
 
 /**
  * 接続先が持っているモデルの一覧
@@ -10,12 +10,6 @@ import type { Protocol } from "./Providers.ts";
  * モデル名は増減が激しくアプリ側に埋め込むとすぐ古くなるため、接続先から
  * 取得する。取得できない接続先もあるので、失敗は呼び出し側で扱う
  */
-
-export type Connection = {
-  protocol: Protocol;
-  baseURL: string;
-  apiKey: string;
-};
 
 const headers = (conn: Connection): HeadersInit => {
   if (conn.protocol === "anthropic-messages") {

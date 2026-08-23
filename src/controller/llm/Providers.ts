@@ -112,3 +112,17 @@ export const DEFAULT_PROVIDER = PROVIDERS[0];
 /** id から接続先を探す (未知の id は既定の接続先として扱う) */
 export const findProvider = (id: string): Provider =>
   PROVIDERS.find((provider) => provider.id === id) ?? DEFAULT_PROVIDER;
+
+/**
+ * 実際に接続するための情報 (接続先の定義 + ユーザーの入力)
+ *
+ * 作る側 (Settings) と使う側 (Chat / ModelList) の間に置く。ここを挟まないと、
+ * 設定が pi-ai の都合を知るか、通信する側が設定の形を知るかのどちらかになる
+ */
+export type Connection = {
+  protocol: Protocol;
+  baseURL: string;
+  apiKey: string;
+  /** OpenAI 互換の接続先だけが使う (モデルの一覧の取得には関係しない) */
+  compat?: OpenAICompletionsCompat;
+};

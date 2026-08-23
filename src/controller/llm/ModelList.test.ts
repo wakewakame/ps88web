@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listModels, toErrorMessage, type Connection } from "./ModelList.ts";
+import { listModels, toErrorMessage } from "./ModelList.ts";
+import type { Connection } from "./Providers.ts";
 
 describe("toErrorMessage", () => {
   const res = (body: string, status = 400) =>

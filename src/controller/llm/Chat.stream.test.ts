@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { streamChat } from "./Chat.ts";
-import { toModel, defaultSettings, withProvider } from "./Settings.ts";
+import type { Connection, Protocol } from "./Providers.ts";
 import { WRITE_CODE } from "./Tools.ts";
 
 /**
@@ -59,20 +59,25 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 const event = (type: string, payload: Record<string, unknown>): string =>
   `event: ${type}\ndata: ${JSON.stringify({ type, ...payload })}\n\n`;
 
-/** モックサーバーを指した設定 (providerId で形式が決まる) */
-const settings = (providerId: string) => ({
-  ...withProvider(defaultSettings(), providerId),
+/** モックサーバーを指した接続先 */
+const connection = (protocol: Protocol): Connection => ({
+  protocol,
   baseURL,
-  model: "test-model",
   apiKey: "sk-test",
+  // 素の OpenAI ではないため pi-ai の推測が効かない。任意のサーバーを
+  // 指したときと同じく、控えめに送る設定にしておく
+  compat:
+    protocol === "openai-completions"
+      ? { supportsDeveloperRole: false, supportsReasoningEffort: false }
+      : undefined,
 });
 
-const run = async (providerId = "custom") => {
+const run = async (protocol: Protocol = "openai-completions") => {
   const onCode = vi.fn();
   const onUpdate = vi.fn();
   const message = await streamChat(
-    toModel(settings(providerId)),
-    "sk-test",
+    connection(protocol),
+    "test-model",
     "system prompt",
     [{ role: "user", content: "サイン波にして", timestamp: 0 }],
     { onUpdate, onCode },
@@ -107,12 +112,43 @@ describe("streamChat", () => {
     const { message, onCode, onUpdate } = await run();
 
     expect(message.stopReason).toBe("toolUse");
+    // 書きかけのコードを反映しないよう、揃ったときに一度だけ渡す
     expect(onCode).toHaveBeenCalledExactlyOnceWith("ps88.audio();");
     // 地の文とコードが並んで届く
     expect(onUpdate).toHaveBeenLastCalledWith([
       { type: "text", text: "サイン波にします" },
       { type: "code", code: "ps88.audio();" },
     ]);
+    // 反映はしないが、書かれていく様子は見せる
+    expect(onUpdate).toHaveBeenCalledWith([
+      { type: "text", text: "サイン波にします" },
+      { type: "code", code: "ps88." },
+    ]);
+  });
+
+  it("コードを取り出せない呼び出しでは渡さない", async () => {
+    // スキーマを守らない接続先やモデルがある
+    response = [
+      chunk({
+        tool_calls: [
+          {
+            index: 0,
+            id: "call_1",
+            type: "function",
+            function: { name: WRITE_CODE, arguments: '{"code":42}' },
+          },
+        ],
+      }),
+      chunk({}, "tool_calls"),
+    ];
+
+    const { message, onCode } = await run();
+
+    // 呼び出し自体は届いている (届かずに素通りしていないことの確認)
+    expect(message.content).toMatchObject([
+      { type: "toolCall", name: WRITE_CODE, arguments: { code: 42 } },
+    ]);
+    expect(onCode).not.toHaveBeenCalled();
   });
 
   it("ツールの定義とシステムプロンプトを送る", async () => {
@@ -124,8 +160,8 @@ describe("streamChat", () => {
       stream: true,
       tools: [{ type: "function", function: { name: WRITE_CODE } }],
     });
-    // system プロンプトは messages の先頭に入る (developer ロールは
-    // 解さない接続先があるため、custom には送らない設定にしてある)
+    // system プロンプトは messages の先頭に入る (developer ロールを
+    // 解さない接続先があるため、compat で送らない設定にしてある)
     expect(received?.messages).toMatchObject([
       { role: "system", content: "system prompt" },
       { role: "user", content: "サイン波にして" },
@@ -134,10 +170,14 @@ describe("streamChat", () => {
 
   it("ツールを呼ばない回答ではコードを渡さない", async () => {
     response = [chunk({ content: "それは無理です" }), chunk({}, "stop")];
-    const { message, onCode } = await run();
+    const { message, onCode, onUpdate } = await run();
 
     expect(message.stopReason).toBe("stop");
     expect(onCode).not.toHaveBeenCalled();
+    // 地の文は届くたびに渡る
+    expect(onUpdate).toHaveBeenLastCalledWith([
+      { type: "text", text: "それは無理です" },
+    ]);
   });
 });
 
@@ -186,14 +226,14 @@ describe("streamChat (Anthropic 形式)", () => {
   });
 
   it("ツール呼び出しからコードを受け取る", async () => {
-    const { message, onCode } = await run("anthropic");
+    const { message, onCode } = await run("anthropic-messages");
 
     expect(message.stopReason).toBe("toolUse");
     expect(onCode).toHaveBeenCalledExactlyOnceWith("ps88.audio();");
   });
 
   it("必須の max_tokens と、system をブロックで送る", async () => {
-    await run("anthropic");
+    await run("anthropic-messages");
 
     // Anthropic は max_tokens が無いと受け付けない
     expect(received?.max_tokens).toBeGreaterThan(0);
@@ -205,7 +245,7 @@ describe("streamChat (Anthropic 形式)", () => {
   });
 
   it("プロンプトキャッシュを効かせる", async () => {
-    await run("anthropic");
+    await run("anthropic-messages");
 
     // system には API の型定義とサンプルを丸ごと載せるため、
     // キャッシュを効かせて 2 回目以降の入力料金を下げる
