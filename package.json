@@ -14,26 +14,26 @@
     "update": "ncu -u && npm install"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.84.2",
+    "@earendil-works/pi-ai": "^0.86.1",
     "@material-design-icons/font": "^0.14.15",
     "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.3.3",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/audioworklet": "^0.0.100",
-    "@types/node": "^26.1.2",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.0.5",
-    "npm-check-updates": "^23.0.1",
-    "oxlint": "^1.77.0",
-    "prettier": "^3.9.6",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "npm-check-updates": "^23.1.0",
+    "oxlint": "^1.84.0",
+    "prettier": "^3.9.8",
     "typedoc": "^0.28.20",
-    "typescript": "~6.0.3",
-    "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "typescript": "~7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
   }
 }
